@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from typing_extensions import TypeAliasType
 
 from ariadne_eval.core.ids import is_valid_id
-from ariadne_eval.core.status import StepStatus
+from ariadne_eval.core.status import StepStatus, TrajectoryStatus
 
 __all__ = [
     "ContentBlock",
@@ -25,9 +25,12 @@ __all__ = [
     "Payload",
     "Step",
     "StepError",
+    "StepStatus",
     "TextBlock",
     "ToolCallPayload",
     "ToolCallRef",
+    "Trajectory",
+    "TrajectoryStatus",
     "UserInputPayload",
 ]
 
@@ -216,3 +219,49 @@ class Step(BaseModel):
         if self.status == StepStatus.FAILED and self.error is None:
             raise ValueError("status=failed requires error to be set")
         return self
+
+
+class Trajectory(BaseModel):
+    """An end-to-end agent run.
+
+    The trajectory itself owns light metadata; the actual tree of steps is
+    stored separately (each ``Step`` carries a ``trajectory_id`` foreign
+    key). ``root_step_id`` is the entry point into the tree.
+    """
+
+    schema_version: int = 1
+    id: str
+    task: str
+    agent_name: str
+    agent_version: str
+    model_id: str
+    started_at: datetime
+    finished_at: datetime | None = None
+    final_status: TrajectoryStatus
+    final_answer: "JsonValue" = None
+    root_step_id: str | None = None
+    metadata: dict[str, "JsonValue"] = Field(default_factory=dict)
+
+    @field_validator("id")
+    @classmethod
+    def _validate_id(cls, v: str) -> str:
+        return _require_valid_id(v, field="id")
+
+    @field_validator("root_step_id")
+    @classmethod
+    def _validate_root(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        return _require_valid_id(v, field="root_step_id")
+
+    @field_validator("started_at")
+    @classmethod
+    def _validate_started(cls, v: datetime) -> datetime:
+        out = _require_tz_aware(v, field="started_at")
+        assert out is not None
+        return out
+
+    @field_validator("finished_at")
+    @classmethod
+    def _validate_finished(cls, v: datetime | None) -> datetime | None:
+        return _require_tz_aware(v, field="finished_at")

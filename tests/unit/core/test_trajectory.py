@@ -248,3 +248,64 @@ def test_step_id_must_be_valid_ulid():
             status=StepStatus.RUNNING,
             payload=_ll(),
         )
+
+
+# ---------------------------------------------------------------------------
+# Task 8 — Trajectory model
+# ---------------------------------------------------------------------------
+
+from ariadne_eval.core.status import TrajectoryStatus  # noqa: E402
+from ariadne_eval.core.trajectory import Trajectory  # noqa: E402
+
+
+def _traj_minimal(**overrides) -> Trajectory:
+    defaults = dict(
+        id=new_id(),
+        task="compute 2+2",
+        agent_name="react",
+        agent_version="0.1",
+        model_id="claude-sonnet",
+        started_at=datetime.now(tz=UTC),
+        finished_at=None,
+        final_status=TrajectoryStatus.RUNNING,
+    )
+    defaults.update(overrides)
+    return Trajectory(**defaults)
+
+
+@pytest.mark.fast
+def test_trajectory_minimal():
+    t = _traj_minimal()
+    assert t.schema_version == 1
+    assert t.metadata == {}
+    assert t.final_answer is None
+    assert t.root_step_id is None
+
+
+@pytest.mark.fast
+def test_trajectory_round_trip_json():
+    t = _traj_minimal(
+        finished_at=datetime.now(tz=UTC),
+        final_status=TrajectoryStatus.SUCCEEDED,
+        final_answer="42",
+    )
+    rehydrated = Trajectory.model_validate_json(t.model_dump_json())
+    assert rehydrated == t
+
+
+@pytest.mark.fast
+def test_trajectory_rejects_naive_started_at():
+    with pytest.raises(ValidationError):
+        _traj_minimal(started_at=datetime(2026, 5, 10, 12, 0, 0))
+
+
+@pytest.mark.fast
+def test_trajectory_id_must_be_valid_ulid():
+    with pytest.raises(ValidationError):
+        _traj_minimal(id="nope")
+
+
+@pytest.mark.fast
+def test_trajectory_root_step_id_validated_when_set():
+    with pytest.raises(ValidationError):
+        _traj_minimal(root_step_id="not-a-ulid")
