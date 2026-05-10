@@ -341,3 +341,25 @@ async def test_delete_is_idempotent_on_missing(tmp_path):
         await store.delete_trajectory("01ARZ3NDEKTSV4RRFFQ69G5FAV")
     finally:
         await store.close()
+
+
+# ---------------------------------------------------------------------------
+# Task 8 — concurrent writes are serialized by the per-instance lock
+# ---------------------------------------------------------------------------
+
+import asyncio  # noqa: E402
+
+
+@pytest.mark.fast
+async def test_50_parallel_saves_all_land(tmp_path):
+    store = DuckDBStore(path=tmp_path / "s.duckdb")
+    try:
+        pairs = [_make_traj_with_steps() for _ in range(50)]
+        await asyncio.gather(*(store.save_trajectory(t, s) for t, s in pairs))
+
+        assert await store.count() == 50
+        ids = {t.id for t, _ in pairs}
+        listed = await store.list_trajectories(limit=100)
+        assert {t.id for t in listed} == ids
+    finally:
+        await store.close()
