@@ -19,6 +19,7 @@ __all__ = [
     "LLMCallPayload",
     "Message",
     "Payload",
+    "StepError",
     "TextBlock",
     "ToolCallPayload",
     "ToolCallRef",
@@ -127,3 +128,16 @@ Payload = Annotated[
     LLMCallPayload | ToolCallPayload | UserInputPayload | InternalPayload,
     Field(discriminator="step_type"),
 ]
+
+
+class StepError(BaseModel):
+    """Structured error attached to a failed step.
+
+    ``traceback`` is opt-in (default ``None``). Tracing infrastructure
+    populates it only when ``capture_tracebacks=True`` is set on the
+    enclosing trajectory; production traces stay light by default.
+    """
+
+    type: str
+    message: str
+    traceback: str | None = None

@@ -14,6 +14,7 @@ from ariadne_eval.core.trajectory import (
     LLMCallPayload,
     Message,
     Payload,
+    StepError,
     ToolCallPayload,
     UserInputPayload,
 )
@@ -81,3 +82,30 @@ def test_payload_discriminator_rejects_unknown_step_type():
     adapter = TypeAdapter(Payload)
     with pytest.raises(ValidationError):
         adapter.validate_python({"step_type": "made_up", "x": 1})
+
+
+# ---------------------------------------------------------------------------
+# Task 6 — StepError
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.fast
+def test_step_error_minimal():
+    e = StepError(type="TimeoutError", message="timed out after 30s")
+    assert e.traceback is None
+
+
+@pytest.mark.fast
+def test_step_error_with_traceback():
+    e = StepError(
+        type="ValueError",
+        message="bad input",
+        traceback="Traceback (most recent call last):\n  ...\nValueError: bad input",
+    )
+    assert "Traceback" in (e.traceback or "")
+
+
+@pytest.mark.fast
+def test_step_error_round_trip():
+    e = StepError(type="X", message="y")
+    assert StepError.model_validate(e.model_dump()) == e
