@@ -5,6 +5,12 @@ repo_url: https://github.com/MrRobotop/ariadne-eval
 repo_name: MrRobotop/ariadne-eval
 edit_uri: edit/main/docs/
 
+# Internal planning artefacts (specs, implementation plans) live under
+# docs/superpowers/ for portfolio visibility but are not part of the
+# user-facing site.
+exclude_docs: |
+  superpowers/
+
 theme:
   name: material
   palette:
@@ -68,6 +74,7 @@ nav:
   - Quickstart: quickstart.md
   - Concepts:
       - concepts/index.md
+      - Trajectory model: concepts/trajectory.md
   - Tutorials:
       - tutorials/index.md
   - Reference:
