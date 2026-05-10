@@ -313,3 +313,31 @@ async def test_count_total_and_filtered(tmp_path):
         assert await store.count(agent_name="tool-use") == 3
     finally:
         await store.close()
+
+
+# ---------------------------------------------------------------------------
+# Task 7 — delete_trajectory
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.fast
+async def test_delete_removes_trajectory_and_steps(tmp_path):
+    store = DuckDBStore(path=tmp_path / "s.duckdb")
+    try:
+        traj, steps = _make_traj_with_steps()
+        await store.save_trajectory(traj, steps)
+        await store.delete_trajectory(traj.id)
+        with pytest.raises(TrajectoryNotFoundError):
+            await store.get_trajectory(traj.id)
+        assert await store.count() == 0
+    finally:
+        await store.close()
+
+
+@pytest.mark.fast
+async def test_delete_is_idempotent_on_missing(tmp_path):
+    store = DuckDBStore(path=tmp_path / "s.duckdb")
+    try:
+        await store.delete_trajectory("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+    finally:
+        await store.close()

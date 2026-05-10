@@ -310,3 +310,20 @@ class DuckDBStore:
         ]
         row = self._conn.execute(sql, params).fetchone()
         return int(row[0]) if row else 0
+
+    async def delete_trajectory(self, traj_id: str) -> None:
+        """Idempotently remove a trajectory and its steps."""
+        async with self._write_lock:
+            await asyncio.to_thread(self._delete_sync, traj_id)
+
+    def _delete_sync(self, traj_id: str) -> None:
+        assert self._conn is not None
+        conn = self._conn
+        conn.execute("BEGIN TRANSACTION")
+        try:
+            conn.execute("DELETE FROM steps WHERE trajectory_id = ?", [traj_id])
+            conn.execute("DELETE FROM trajectories WHERE id = ?", [traj_id])
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
