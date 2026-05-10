@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Core trajectory data model: `Trajectory`, `Step`, `Message`, four payload
+  variants (`LLMCallPayload`, `ToolCallPayload`, `UserInputPayload`,
+  `InternalPayload`), `StepError`, `StepStatus`, `TrajectoryStatus`,
+  `JsonValue`, `new_id`, `is_valid_id`. Validators: tz-aware datetimes,
+  ULID format, no self-parenting, failed-step requires error. Truncation on
+  `completion` and `result` above 64K chars. Opt-in `Trajectory.redact()`
+  hook. Hypothesis round-trip property tests (200 examples each).
+
 ## [0.0.1] - 2026-05-10
 
 ### Added

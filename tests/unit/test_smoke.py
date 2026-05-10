@@ -43,6 +43,36 @@ def test_cli_hello_subcommand():
 
 
 @pytest.mark.fast
+def test_public_api_exports_core_types():
+    """Pin the public surface so accidental removals are caught early."""
+    import ariadne_eval
+
+    expected = {
+        "__version__",
+        "Trajectory",
+        "Step",
+        "Message",
+        "ContentBlock",
+        "TextBlock",
+        "ToolCallRef",
+        "LLMCallPayload",
+        "ToolCallPayload",
+        "UserInputPayload",
+        "InternalPayload",
+        "StepError",
+        "StepStatus",
+        "TrajectoryStatus",
+        "JsonValue",
+        "new_id",
+        "is_valid_id",
+    }
+    missing = expected - set(ariadne_eval.__all__)
+    assert not missing, f"Missing from public API: {missing}"
+    for name in expected:
+        assert hasattr(ariadne_eval, name), f"ariadne_eval.{name} not importable"
+
+
+@pytest.mark.fast
 def test_installed_console_script_runs():
     """Verifies the entry point is wired up by ``uv sync`` / ``pip install``.
 
