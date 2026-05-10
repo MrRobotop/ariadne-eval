@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Storage layer: `Store` Protocol, `DuckDBStore` implementation, filesystem
+  migrations under `storage/migrations_sql/`, JSONL export/import functions
+  (`export_jsonl`, `import_jsonl`), and storage error hierarchy
+  (`StoreError`, `TrajectoryNotFoundError`, `MetadataTooLargeError`).
+  Default path `~/.ariadne/store.duckdb`, overridable via
+  `ARIADNE_STORE_PATH` env var or the constructor `path` argument.
+  Per-instance asyncio write lock; async-first API with sync DuckDB calls
+  wrapped in `asyncio.to_thread`. 1 MB metadata cap. Hypothesis storage
+  round-trip property test (50 examples).
+- `pytz` added as a runtime dependency for DuckDB `TIMESTAMPTZ` round-trips.
+
 - Core trajectory data model: `Trajectory`, `Step`, `Message`, four payload
   variants (`LLMCallPayload`, `ToolCallPayload`, `UserInputPayload`,
   `InternalPayload`), `StepError`, `StepStatus`, `TrajectoryStatus`,
