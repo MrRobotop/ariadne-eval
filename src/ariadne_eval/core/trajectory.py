@@ -7,8 +7,9 @@ the design rationale.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from typing_extensions import TypeAliasType
@@ -17,6 +18,7 @@ from ariadne_eval.core.ids import is_valid_id
 from ariadne_eval.core.status import StepStatus, TrajectoryStatus
 
 __all__ = [
+    "MAX_FIELD_CHARS",
     "ContentBlock",
     "InternalPayload",
     "JsonValue",
@@ -33,6 +35,31 @@ __all__ = [
     "TrajectoryStatus",
     "UserInputPayload",
 ]
+
+
+MAX_FIELD_CHARS: Final[int] = 65_536
+"""Per-field truncation cap, applied to ``LLMCallPayload.completion`` and
+``ToolCallPayload.result`` only. See the design spec for rationale."""
+
+
+def _truncate_str(value: str) -> tuple[str, bool]:
+    """Return ``(possibly-truncated, was_truncated)``."""
+    if len(value) > MAX_FIELD_CHARS:
+        return value[:MAX_FIELD_CHARS], True
+    return value, False
+
+
+def _truncate_json_value(value: object) -> tuple[object, bool]:
+    """Return ``(possibly-degraded, was_truncated)``.
+
+    If the JSON-serialized form fits, the original structure is preserved.
+    Otherwise the value is replaced with the JSON-prefix string (a structural
+    degradation that is documented in the spec).
+    """
+    serialized = json.dumps(value, default=str)
+    if len(serialized) <= MAX_FIELD_CHARS:
+        return value, False
+    return serialized[:MAX_FIELD_CHARS], True
 
 
 # Recursive JSON-compatible value type. Using ``TypeAliasType`` (PEP 695 /
@@ -104,6 +131,14 @@ class LLMCallPayload(BaseModel):
     ttft_ms: float | None = None
     tool_calls_emitted: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _truncate_completion(self) -> "LLMCallPayload":
+        new_completion, was = _truncate_str(self.completion)
+        if was:
+            object.__setattr__(self, "completion", new_completion)
+            object.__setattr__(self, "completion_truncated", True)
+        return self
+
 
 class ToolCallPayload(BaseModel):
     """Payload for a tool execution step."""
@@ -114,6 +149,14 @@ class ToolCallPayload(BaseModel):
     result: "JsonValue" = None
     result_truncated: bool = False
     latency_ms: float
+
+    @model_validator(mode="after")
+    def _truncate_result(self) -> "ToolCallPayload":
+        new_result, was = _truncate_json_value(self.result)
+        if was:
+            object.__setattr__(self, "result", new_result)
+            object.__setattr__(self, "result_truncated", True)
+        return self
 
 
 class UserInputPayload(BaseModel):

@@ -309,3 +309,69 @@ def test_trajectory_id_must_be_valid_ulid():
 def test_trajectory_root_step_id_validated_when_set():
     with pytest.raises(ValidationError):
         _traj_minimal(root_step_id="not-a-ulid")
+
+
+# ---------------------------------------------------------------------------
+# Task 9 — Truncation behavior
+# ---------------------------------------------------------------------------
+
+from ariadne_eval.core.trajectory import MAX_FIELD_CHARS  # noqa: E402
+
+
+@pytest.mark.fast
+def test_completion_under_limit_not_truncated():
+    p = LLMCallPayload(
+        model_id="m",
+        prompt_messages=[Message(role="user", content="hi")],
+        completion="x" * 100,
+        input_tokens=1,
+        output_tokens=1,
+        cost_usd=0.0,
+        latency_ms=1.0,
+    )
+    assert p.completion == "x" * 100
+    assert p.completion_truncated is False
+
+
+@pytest.mark.fast
+def test_completion_over_limit_truncated():
+    too_long = "x" * (MAX_FIELD_CHARS + 100)
+    p = LLMCallPayload(
+        model_id="m",
+        prompt_messages=[Message(role="user", content="hi")],
+        completion=too_long,
+        input_tokens=1,
+        output_tokens=1,
+        cost_usd=0.0,
+        latency_ms=1.0,
+    )
+    assert len(p.completion) == MAX_FIELD_CHARS
+    assert p.completion_truncated is True
+
+
+@pytest.mark.fast
+def test_tool_result_under_limit_not_truncated():
+    p = ToolCallPayload(
+        tool_name="t",
+        arguments={"x": 1},
+        result={"a": "b"},
+        latency_ms=1.0,
+    )
+    assert p.result == {"a": "b"}
+    assert p.result_truncated is False
+
+
+@pytest.mark.fast
+def test_tool_result_over_limit_truncated_to_string():
+    """When a structured result exceeds the cap, it is replaced with the
+    JSON-prefix string and ``result_truncated`` is set."""
+    huge = {"data": "x" * (MAX_FIELD_CHARS + 100)}
+    p = ToolCallPayload(
+        tool_name="t",
+        arguments={"x": 1},
+        result=huge,
+        latency_ms=1.0,
+    )
+    assert p.result_truncated is True
+    assert isinstance(p.result, str)
+    assert len(p.result) == MAX_FIELD_CHARS
