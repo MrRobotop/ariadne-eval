@@ -8,6 +8,7 @@ the design rationale.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import datetime
 from typing import Annotated, Final, Literal
 
@@ -308,3 +309,15 @@ class Trajectory(BaseModel):
     @classmethod
     def _validate_finished(cls, v: datetime | None) -> datetime | None:
         return _require_tz_aware(v, field="finished_at")
+
+    def redact(
+        self,
+        redactor: Callable[["Trajectory"], "Trajectory"],
+    ) -> "Trajectory":
+        """Apply a user-supplied redactor and return a new Trajectory.
+
+        The default behaviour of ``ariadne-eval`` is to preserve raw
+        payloads. Privacy-sensitive consumers opt in by calling this hook
+        with their own redactor. The hook never mutates the original.
+        """
+        return redactor(self.model_copy(deep=True))
