@@ -65,6 +65,14 @@ def test_public_api_exports_core_types():
         "JsonValue",
         "new_id",
         "is_valid_id",
+        # Storage
+        "Store",
+        "DuckDBStore",
+        "StoreError",
+        "TrajectoryNotFoundError",
+        "MetadataTooLargeError",
+        "export_jsonl",
+        "import_jsonl",
     }
     missing = expected - set(ariadne_eval.__all__)
     assert not missing, f"Missing from public API: {missing}"
