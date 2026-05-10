@@ -1,0 +1,74 @@
+site_name: ariadne-eval
+site_description: Trajectory-level observability and evaluation for LLM agents.
+site_url: https://MrRobotop.github.io/ariadne-eval/
+repo_url: https://github.com/MrRobotop/ariadne-eval
+repo_name: MrRobotop/ariadne-eval
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_root_heading: true
+            show_source: true
+            show_signature_annotations: true
+            separate_signature: true
+            merge_init_into_class: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Concepts:
+      - concepts/index.md
+  - Tutorials:
+      - tutorials/index.md
+  - Reference:
+      - reference/index.md

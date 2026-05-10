@@ -1,0 +1,47 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+
+# Build artifacts
+build/
+dist/
+wheels/
+htmlcov/
+site/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Tooling caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+.hypothesis/
+
+# IDE / agent local state
+.idea/
+.vscode/
+.claude/
+*.swp
+.DS_Store
+
+# Project-specific
+tests/**/*.duckdb
+tests/**/*.duckdb.wal
+results/
+data/calibration/labels.jsonl.bak
