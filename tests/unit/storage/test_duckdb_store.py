@@ -194,3 +194,122 @@ async def test_save_replaces_on_same_id(tmp_path):
         assert {s.id for s in loaded_steps} == {s.id for s in steps2}
     finally:
         await store.close()
+
+
+# ---------------------------------------------------------------------------
+# Task 6 — list_trajectories + count
+# ---------------------------------------------------------------------------
+
+from datetime import timedelta  # noqa: E402
+
+
+async def _seed(store, *, n=5, agent="react", model="m"):
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    out = []
+    for i in range(n):
+        traj, steps = _make_traj_with_steps()
+        traj = traj.model_copy(
+            update={
+                "agent_name": agent,
+                "model_id": model,
+                "started_at": base + timedelta(seconds=i),
+            }
+        )
+        await store.save_trajectory(traj, steps)
+        out.append(traj)
+    return out
+
+
+@pytest.mark.fast
+async def test_list_returns_trajectories_most_recent_first(tmp_path):
+    store = DuckDBStore(path=tmp_path / "s.duckdb")
+    try:
+        seeded = await _seed(store, n=5)
+        listed = await store.list_trajectories()
+        assert [t.id for t in listed] == [t.id for t in reversed(seeded)]
+    finally:
+        await store.close()
+
+
+@pytest.mark.fast
+async def test_list_filters_by_agent_name(tmp_path):
+    store = DuckDBStore(path=tmp_path / "s.duckdb")
+    try:
+        await _seed(store, n=2, agent="react")
+        await _seed(store, n=3, agent="tool-use")
+        listed = await store.list_trajectories(agent_name="react")
+        assert len(listed) == 2
+        assert all(t.agent_name == "react" for t in listed)
+    finally:
+        await store.close()
+
+
+@pytest.mark.fast
+async def test_list_filters_by_model_id(tmp_path):
+    store = DuckDBStore(path=tmp_path / "s.duckdb")
+    try:
+        await _seed(store, n=2, model="claude-sonnet")
+        await _seed(store, n=4, model="gpt-4o")
+        listed = await store.list_trajectories(model_id="gpt-4o")
+        assert len(listed) == 4
+    finally:
+        await store.close()
+
+
+@pytest.mark.fast
+async def test_list_filters_by_final_status(tmp_path):
+    store = DuckDBStore(path=tmp_path / "s.duckdb")
+    try:
+        await _seed(store, n=2)
+        traj, steps = _make_traj_with_steps()
+        traj = traj.model_copy(update={"final_status": TrajectoryStatus.FAILED})
+        await store.save_trajectory(traj, steps)
+
+        succ = await store.list_trajectories(final_status=TrajectoryStatus.SUCCEEDED)
+        fail = await store.list_trajectories(final_status=TrajectoryStatus.FAILED)
+        assert len(succ) == 2
+        assert len(fail) == 1
+    finally:
+        await store.close()
+
+
+@pytest.mark.fast
+async def test_list_filters_by_time_range(tmp_path):
+    store = DuckDBStore(path=tmp_path / "s.duckdb")
+    try:
+        seeded = await _seed(store, n=5)
+        after = seeded[1].started_at
+        before = seeded[3].started_at
+        listed = await store.list_trajectories(
+            started_after=after, started_before=before
+        )
+        assert {t.id for t in listed} == {t.id for t in seeded[1:4]}
+    finally:
+        await store.close()
+
+
+@pytest.mark.fast
+async def test_list_pagination(tmp_path):
+    store = DuckDBStore(path=tmp_path / "s.duckdb")
+    try:
+        await _seed(store, n=7)
+        page1 = await store.list_trajectories(limit=3, offset=0)
+        page2 = await store.list_trajectories(limit=3, offset=3)
+        assert len(page1) == 3
+        assert len(page2) == 3
+        assert {t.id for t in page1}.isdisjoint({t.id for t in page2})
+    finally:
+        await store.close()
+
+
+@pytest.mark.fast
+async def test_count_total_and_filtered(tmp_path):
+    store = DuckDBStore(path=tmp_path / "s.duckdb")
+    try:
+        await _seed(store, n=2, agent="react")
+        await _seed(store, n=3, agent="tool-use")
+        assert await store.count() == 5
+        assert await store.count(agent_name="react") == 2
+        assert await store.count(agent_name="tool-use") == 3
+    finally:
+        await store.close()

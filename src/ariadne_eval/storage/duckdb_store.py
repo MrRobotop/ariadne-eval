@@ -11,12 +11,14 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
 import duckdb
 
+from ariadne_eval.core.status import TrajectoryStatus
 from ariadne_eval.core.trajectory import Step, Trajectory
 from ariadne_eval.storage import migrations as _migrations
 from ariadne_eval.storage.base import MetadataTooLargeError, TrajectoryNotFoundError
@@ -217,3 +219,94 @@ class DuckDBStore:
             [traj_id],
         ).fetchall()
         return traj_row, step_rows
+
+    async def list_trajectories(
+        self,
+        *,
+        agent_name: str | None = None,
+        model_id: str | None = None,
+        final_status: TrajectoryStatus | None = None,
+        started_after: datetime | None = None,
+        started_before: datetime | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[Trajectory]:
+        """List trajectory metadata (no steps), most-recent first."""
+        rows = await asyncio.to_thread(
+            self._list_sync,
+            agent_name,
+            model_id,
+            final_status.value if final_status is not None else None,
+            started_after,
+            started_before,
+            limit,
+            offset,
+        )
+        return [_row_to_trajectory(r) for r in rows]
+
+    def _list_sync(
+        self,
+        agent_name: str | None,
+        model_id: str | None,
+        final_status: str | None,
+        started_after: datetime | None,
+        started_before: datetime | None,
+        limit: int,
+        offset: int,
+    ) -> list[tuple[Any, ...]]:
+        assert self._conn is not None
+        sql = """
+            SELECT * FROM trajectories
+            WHERE (? IS NULL OR agent_name   = ?)
+              AND (? IS NULL OR model_id     = ?)
+              AND (? IS NULL OR final_status = ?)
+              AND (? IS NULL OR started_at  >= ?)
+              AND (? IS NULL OR started_at  <= ?)
+            ORDER BY started_at DESC
+            LIMIT ? OFFSET ?
+        """
+        params: list[Any] = [
+            agent_name, agent_name,
+            model_id, model_id,
+            final_status, final_status,
+            started_after, started_after,
+            started_before, started_before,
+            limit, offset,
+        ]
+        return self._conn.execute(sql, params).fetchall()
+
+    async def count(
+        self,
+        *,
+        agent_name: str | None = None,
+        model_id: str | None = None,
+        final_status: TrajectoryStatus | None = None,
+    ) -> int:
+        """Count trajectories matching the filters."""
+        return await asyncio.to_thread(
+            self._count_sync,
+            agent_name,
+            model_id,
+            final_status.value if final_status is not None else None,
+        )
+
+    def _count_sync(
+        self,
+        agent_name: str | None,
+        model_id: str | None,
+        final_status: str | None,
+    ) -> int:
+        assert self._conn is not None
+        sql = """
+            SELECT COUNT(*) FROM trajectories
+            WHERE (? IS NULL OR agent_name   = ?)
+              AND (? IS NULL OR model_id     = ?)
+              AND (? IS NULL OR final_status = ?)
+        """
+        params: list[Any] = [
+            agent_name, agent_name,
+            model_id, model_id,
+            final_status, final_status,
+        ]
+        row = self._conn.execute(sql, params).fetchone()
+        return int(row[0]) if row else 0
