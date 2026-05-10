@@ -7,17 +7,22 @@ the design rationale.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 from typing_extensions import TypeAliasType
 
 __all__ = [
     "ContentBlock",
+    "InternalPayload",
     "JsonValue",
+    "LLMCallPayload",
     "Message",
+    "Payload",
     "TextBlock",
+    "ToolCallPayload",
     "ToolCallRef",
+    "UserInputPayload",
 ]
 
 
@@ -72,3 +77,53 @@ class Message(BaseModel):
                 f"got role={self.role!r}"
             )
         return self
+
+
+class LLMCallPayload(BaseModel):
+    """Payload for an LLM call step."""
+
+    step_type: Literal["llm_call"] = "llm_call"
+    model_id: str
+    prompt_messages: list[Message]
+    completion: str
+    completion_truncated: bool = False
+    input_tokens: int
+    output_tokens: int
+    cost_usd: float
+    temperature: float | None = None
+    latency_ms: float
+    ttft_ms: float | None = None
+    tool_calls_emitted: list[str] = Field(default_factory=list)
+
+
+class ToolCallPayload(BaseModel):
+    """Payload for a tool execution step."""
+
+    step_type: Literal["tool_call"] = "tool_call"
+    tool_name: str
+    arguments: dict[str, "JsonValue"]
+    result: "JsonValue" = None
+    result_truncated: bool = False
+    latency_ms: float
+
+
+class UserInputPayload(BaseModel):
+    """Payload for an externally-supplied user input step."""
+
+    step_type: Literal["user_input"] = "user_input"
+    message: str
+    channel: str | None = None
+
+
+class InternalPayload(BaseModel):
+    """Payload for an agent-internal step (branching, planning, bookkeeping)."""
+
+    step_type: Literal["internal"] = "internal"
+    kind: str
+    data: "JsonValue" = None
+
+
+Payload = Annotated[
+    LLMCallPayload | ToolCallPayload | UserInputPayload | InternalPayload,
+    Field(discriminator="step_type"),
+]
