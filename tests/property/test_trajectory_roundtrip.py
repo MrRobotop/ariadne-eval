@@ -19,7 +19,6 @@ from ariadne_eval.core.trajectory import (
     UserInputPayload,
 )
 
-
 _BASE_TIME = datetime(2026, 1, 1, tzinfo=UTC)
 
 
@@ -80,7 +79,8 @@ def _steps(draw):
         parent_step_id=None,
         name=draw(st.text(min_size=1, max_size=24)),
         started_at=started,
-        finished_at=started + timedelta(milliseconds=draw(st.integers(min_value=0, max_value=10_000))),
+        finished_at=started
+        + timedelta(milliseconds=draw(st.integers(min_value=0, max_value=10_000))),
         status=StepStatus.SUCCEEDED,
         payload=draw(_payloads),
     )

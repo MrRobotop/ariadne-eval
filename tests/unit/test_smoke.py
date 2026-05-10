@@ -49,11 +49,22 @@ def test_public_api_exports_core_types():
 
     expected = {
         "__version__",
-        "Trajectory", "Step", "Message", "ContentBlock", "TextBlock",
+        "Trajectory",
+        "Step",
+        "Message",
+        "ContentBlock",
+        "TextBlock",
         "ToolCallRef",
-        "LLMCallPayload", "ToolCallPayload", "UserInputPayload", "InternalPayload",
-        "StepError", "StepStatus", "TrajectoryStatus", "JsonValue",
-        "new_id", "is_valid_id",
+        "LLMCallPayload",
+        "ToolCallPayload",
+        "UserInputPayload",
+        "InternalPayload",
+        "StepError",
+        "StepStatus",
+        "TrajectoryStatus",
+        "JsonValue",
+        "new_id",
+        "is_valid_id",
     }
     missing = expected - set(ariadne_eval.__all__)
     assert not missing, f"Missing from public API: {missing}"

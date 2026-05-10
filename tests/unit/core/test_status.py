@@ -32,13 +32,9 @@ def test_status_enums_are_str_enums():
 
 @pytest.mark.fast
 def test_step_status_full_membership():
-    assert {s.value for s in StepStatus} == {
-        "pending", "running", "succeeded", "failed", "skipped"
-    }
+    assert {s.value for s in StepStatus} == {"pending", "running", "succeeded", "failed", "skipped"}
 
 
 @pytest.mark.fast
 def test_trajectory_status_full_membership():
-    assert {s.value for s in TrajectoryStatus} == {
-        "running", "succeeded", "failed", "aborted"
-    }
+    assert {s.value for s in TrajectoryStatus} == {"running", "succeeded", "failed", "aborted"}

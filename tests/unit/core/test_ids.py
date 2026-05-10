@@ -41,10 +41,10 @@ def test_is_valid_id_accepts_freshly_minted_id():
     [
         "",
         "too-short",
-        "x" * 25,                              # 25 chars
-        "x" * 27,                              # 27 chars
-        "01ARZ3NDEKTSV4RRFFQ69G5FA!",          # invalid char
-        "01ARZ3NDEKTSV4RRFFQ69G5FAU",          # contains 'U' — Crockford excludes I,L,O,U
+        "x" * 25,  # 25 chars
+        "x" * 27,  # 27 chars
+        "01ARZ3NDEKTSV4RRFFQ69G5FA!",  # invalid char
+        "01ARZ3NDEKTSV4RRFFQ69G5FAU",  # contains 'U' — Crockford excludes I,L,O,U
     ],
 )
 def test_is_valid_id_rejects_malformed(bad):

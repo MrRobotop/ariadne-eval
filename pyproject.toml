@@ -125,6 +125,10 @@ ignore = [
     "D203",
     "D213",
     "ANN401",
+    # ANN101/ANN102 are deprecated and removed from modern ruff; older
+    # pre-commit ruff versions still emit them. Ignoring keeps both happy.
+    "ANN101",
+    "ANN102",
 ]
 
 [tool.ruff.lint.per-file-ignores]

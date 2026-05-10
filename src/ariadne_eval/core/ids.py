@@ -15,9 +15,7 @@ from ulid import ULID
 __all__ = ["is_valid_id", "new_id"]
 
 
-_VALID_CHARS: Final[frozenset[str]] = frozenset(
-    "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
-)
+_VALID_CHARS: Final[frozenset[str]] = frozenset("0123456789ABCDEFGHJKMNPQRSTVWXYZ")
 """Crockford base32 alphabet: digits + uppercase letters minus I, L, O, U."""
 
 
@@ -26,7 +24,7 @@ def new_id() -> str:
     return str(ULID())
 
 
-def is_valid_id(value: Any) -> bool:  # noqa: ANN401 - public API takes arbitrary input
+def is_valid_id(value: Any) -> bool:
     """Return ``True`` iff ``value`` is a syntactically valid ULID string.
 
     Does not raise on non-string input; callers can pass JSON-decoded

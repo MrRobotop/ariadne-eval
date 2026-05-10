@@ -95,7 +95,7 @@ class ToolCallRef(BaseModel):
 
     id: str
     name: str
-    arguments: dict[str, "JsonValue"]
+    arguments: dict[str, JsonValue]
 
 
 class Message(BaseModel):
@@ -107,11 +107,10 @@ class Message(BaseModel):
     tool_call_id: str | None = None
 
     @model_validator(mode="after")
-    def _tool_call_id_only_when_tool_role(self) -> "Message":
+    def _tool_call_id_only_when_tool_role(self) -> Message:
         if self.tool_call_id is not None and self.role != "tool":
             raise ValueError(
-                "tool_call_id is only valid when role == 'tool'; "
-                f"got role={self.role!r}"
+                f"tool_call_id is only valid when role == 'tool'; got role={self.role!r}"
             )
         return self
 
@@ -133,7 +132,7 @@ class LLMCallPayload(BaseModel):
     tool_calls_emitted: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _truncate_completion(self) -> "LLMCallPayload":
+    def _truncate_completion(self) -> LLMCallPayload:
         new_completion, was = _truncate_str(self.completion)
         if was:
             object.__setattr__(self, "completion", new_completion)
@@ -146,13 +145,13 @@ class ToolCallPayload(BaseModel):
 
     step_type: Literal["tool_call"] = "tool_call"
     tool_name: str
-    arguments: dict[str, "JsonValue"]
-    result: "JsonValue" = None
+    arguments: dict[str, JsonValue]
+    result: JsonValue = None
     result_truncated: bool = False
     latency_ms: float
 
     @model_validator(mode="after")
-    def _truncate_result(self) -> "ToolCallPayload":
+    def _truncate_result(self) -> ToolCallPayload:
         new_result, was = _truncate_json_value(self.result)
         if was:
             object.__setattr__(self, "result", new_result)
@@ -173,7 +172,7 @@ class InternalPayload(BaseModel):
 
     step_type: Literal["internal"] = "internal"
     kind: str
-    data: "JsonValue" = None
+    data: JsonValue = None
 
 
 Payload = Annotated[
@@ -221,7 +220,7 @@ class Step(BaseModel):
     status: StepStatus
     payload: Payload
     error: StepError | None = None
-    metadata: dict[str, "JsonValue"] = Field(default_factory=dict)
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
     @field_validator("id")
     @classmethod
@@ -243,9 +242,9 @@ class Step(BaseModel):
     @field_validator("started_at")
     @classmethod
     def _validate_started(cls, v: datetime) -> datetime:
-        out = _require_tz_aware(v, field="started_at")
-        assert out is not None  # mypy: started_at is non-None
-        return out
+        if v.tzinfo is None:
+            raise ValueError("started_at must be tz-aware (got naive datetime)")
+        return v
 
     @field_validator("finished_at")
     @classmethod
@@ -253,13 +252,13 @@ class Step(BaseModel):
         return _require_tz_aware(v, field="finished_at")
 
     @model_validator(mode="after")
-    def _no_self_parent(self) -> "Step":
+    def _no_self_parent(self) -> Step:
         if self.parent_step_id is not None and self.parent_step_id == self.id:
             raise ValueError("parent_step_id cannot equal id (self-parenting)")
         return self
 
     @model_validator(mode="after")
-    def _failed_requires_error(self) -> "Step":
+    def _failed_requires_error(self) -> Step:
         if self.status == StepStatus.FAILED and self.error is None:
             raise ValueError("status=failed requires error to be set")
         return self
@@ -282,9 +281,9 @@ class Trajectory(BaseModel):
     started_at: datetime
     finished_at: datetime | None = None
     final_status: TrajectoryStatus
-    final_answer: "JsonValue" = None
+    final_answer: JsonValue = None
     root_step_id: str | None = None
-    metadata: dict[str, "JsonValue"] = Field(default_factory=dict)
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
     @field_validator("id")
     @classmethod
@@ -301,9 +300,9 @@ class Trajectory(BaseModel):
     @field_validator("started_at")
     @classmethod
     def _validate_started(cls, v: datetime) -> datetime:
-        out = _require_tz_aware(v, field="started_at")
-        assert out is not None
-        return out
+        if v.tzinfo is None:
+            raise ValueError("started_at must be tz-aware (got naive datetime)")
+        return v
 
     @field_validator("finished_at")
     @classmethod
@@ -312,8 +311,8 @@ class Trajectory(BaseModel):
 
     def redact(
         self,
-        redactor: Callable[["Trajectory"], "Trajectory"],
-    ) -> "Trajectory":
+        redactor: Callable[[Trajectory], Trajectory],
+    ) -> Trajectory:
         """Apply a user-supplied redactor and return a new Trajectory.
 
         The default behaviour of ``ariadne-eval`` is to preserve raw
