@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import duckdb
 import pytest
 
@@ -18,9 +16,7 @@ async def test_init_creates_file_and_runs_migrations(tmp_path):
         assert db.exists()
         conn = duckdb.connect(str(db))
         try:
-            rows = conn.execute(
-                "SELECT version, name FROM _meta ORDER BY version"
-            ).fetchall()
+            rows = conn.execute("SELECT version, name FROM _meta ORDER BY version").fetchall()
             assert (1, "initial") in rows
         finally:
             conn.close()
@@ -62,6 +58,24 @@ async def test_env_var_used_when_no_arg(tmp_path, monkeypatch):
         assert db.exists()
     finally:
         await store.close()
+
+
+@pytest.mark.fast
+async def test_path_property_returns_resolved_path(tmp_path):
+    db = tmp_path / "s.duckdb"
+    store = DuckDBStore(path=db)
+    try:
+        assert store.path == db
+    finally:
+        await store.close()
+
+
+@pytest.mark.fast
+async def test_close_is_idempotent(tmp_path):
+    store = DuckDBStore(path=tmp_path / "s.duckdb")
+    await store.close()
+    # Calling again should not raise
+    await store.close()
 
 
 @pytest.mark.fast
@@ -280,9 +294,7 @@ async def test_list_filters_by_time_range(tmp_path):
         seeded = await _seed(store, n=5)
         after = seeded[1].started_at
         before = seeded[3].started_at
-        listed = await store.list_trajectories(
-            started_after=after, started_before=before
-        )
+        listed = await store.list_trajectories(started_after=after, started_before=before)
         assert {t.id for t in listed} == {t.id for t in seeded[1:4]}
     finally:
         await store.close()

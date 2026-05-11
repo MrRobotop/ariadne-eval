@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -49,14 +49,10 @@ def discover_migrations(directory: Path) -> list[Migration]:
             continue
         match = _FILENAME_RE.match(entry.name)
         if match is None:
-            raise ValueError(
-                f"migration filename does not match NNN_<name>.sql: {entry.name!r}"
-            )
+            raise ValueError(f"migration filename does not match NNN_<name>.sql: {entry.name!r}")
         version = int(match.group(1))
         name = match.group(2)
-        migrations.append(
-            Migration(version=version, name=name, sql=entry.read_text())
-        )
+        migrations.append(Migration(version=version, name=name, sql=entry.read_text()))
     migrations.sort(key=lambda m: m.version)
     return migrations
 
@@ -75,18 +71,18 @@ def _ensure_meta_table(conn: duckdb.DuckDBPyConnection) -> None:
 
 def _current_version(conn: duckdb.DuckDBPyConnection) -> int:
     row = conn.execute("SELECT COALESCE(MAX(version), 0) FROM _meta").fetchone()
-    if row is None:
+    if row is None:  # pragma: no cover - COALESCE guarantees a row
         return 0
     return int(row[0])
 
 
 def apply_pending(conn: duckdb.DuckDBPyConnection, directory: Path) -> int:
-    """Apply every migration in ``directory`` strictly newer than the
-    ``MAX(version)`` recorded in ``_meta``. Returns the number applied.
+    """Apply pending migrations and return the number applied.
 
-    Each migration runs inside a transaction. If a migration fails, its
-    transaction is rolled back and the exception is re-raised wrapped in
-    :class:`StoreError` so callers can branch on storage-layer errors uniformly.
+    Every migration in ``directory`` strictly newer than the ``MAX(version)``
+    recorded in ``_meta`` is applied. Each runs inside a transaction; on
+    failure the transaction is rolled back and the exception is re-raised
+    wrapped in :class:`StoreError`.
     """
     _ensure_meta_table(conn)
     current = _current_version(conn)
@@ -101,13 +97,11 @@ def apply_pending(conn: duckdb.DuckDBPyConnection, directory: Path) -> int:
             conn.execute(mig.sql)
             conn.execute(
                 "INSERT INTO _meta (version, name, applied_at) VALUES (?, ?, ?)",
-                [mig.version, mig.name, datetime.now(tz=timezone.utc)],
+                [mig.version, mig.name, datetime.now(tz=UTC)],
             )
             conn.execute("COMMIT")
         except Exception as exc:
             conn.execute("ROLLBACK")
-            raise StoreError(
-                f"migration {mig.version:03d}_{mig.name} failed: {exc}"
-            ) from exc
+            raise StoreError(f"migration {mig.version:03d}_{mig.name} failed: {exc}") from exc
 
     return len(pending)

@@ -22,7 +22,6 @@ from ariadne_eval.core.trajectory import (
 )
 from ariadne_eval.storage.duckdb_store import DuckDBStore
 
-
 _BASE = datetime(2026, 1, 1, tzinfo=UTC)
 
 
@@ -82,9 +81,7 @@ def _payloads(draw):
 @st.composite
 def _traj_and_steps(draw):
     tid = new_id()
-    started = _BASE + timedelta(
-        seconds=draw(st.integers(min_value=0, max_value=10_000))
-    )
+    started = _BASE + timedelta(seconds=draw(st.integers(min_value=0, max_value=10_000)))
     n_steps = draw(st.integers(min_value=1, max_value=4))
     steps = [
         Step(

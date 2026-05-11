@@ -149,3 +149,42 @@ async def test_import_rejects_missing_keys_with_line_number(tmp_path):
         assert "line 1" in str(exc.value).lower()
     finally:
         await dst.close()
+
+
+@pytest.mark.fast
+async def test_import_wraps_pydantic_validation_error_with_line_number(tmp_path):
+    """A line with the right shape but invalid trajectory fields gets a clear
+    error mentioning the line number, not a raw Pydantic stack."""
+    dst = DuckDBStore(path=tmp_path / "dst.duckdb")
+    try:
+        bad = tmp_path / "bad.jsonl"
+        # Shape is right (has 'trajectory' and 'steps') but fields are missing.
+        bad.write_text('{"trajectory": {"id": "x"}, "steps": []}\n')
+        with pytest.raises(ValueError) as exc:
+            await import_jsonl(bad, dst)
+        msg = str(exc.value).lower()
+        assert "line 1" in msg
+        assert "validate" in msg
+    finally:
+        await dst.close()
+
+
+@pytest.mark.fast
+async def test_import_skips_blank_lines(tmp_path):
+    src = DuckDBStore(path=tmp_path / "src.duckdb")
+    dst = DuckDBStore(path=tmp_path / "dst.duckdb")
+    try:
+        t, s = _make_traj()
+        await src.save_trajectory(t, s)
+
+        out = tmp_path / "with_blanks.jsonl"
+        await export_jsonl(src, out)
+        # Inject a blank line in the middle
+        contents = out.read_text()
+        out.write_text(contents + "\n\n")
+
+        n = await import_jsonl(out, dst)
+        assert n == 1
+    finally:
+        await src.close()
+        await dst.close()

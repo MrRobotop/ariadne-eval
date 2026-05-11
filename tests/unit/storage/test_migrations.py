@@ -53,9 +53,7 @@ def test_apply_pending_creates_meta_table_and_runs_all_on_empty(tmp_path):
         applied = apply_pending(conn, tmp_path)
         assert applied == 2
 
-        rows = conn.execute(
-            "SELECT version, name FROM _meta ORDER BY version"
-        ).fetchall()
+        rows = conn.execute("SELECT version, name FROM _meta ORDER BY version").fetchall()
         assert rows == [(1, "one"), (2, "two")]
 
         names = {r[0] for r in conn.execute("SHOW TABLES").fetchall()}
@@ -82,9 +80,7 @@ def test_apply_pending_only_runs_missing_versions(tmp_path):
         applied = apply_pending(conn, tmp_path)
         assert applied == 1  # only v2
 
-        rows = conn.execute(
-            "SELECT version FROM _meta ORDER BY version"
-        ).fetchall()
+        rows = conn.execute("SELECT version FROM _meta ORDER BY version").fetchall()
         assert rows == [(1,), (2,)]
     finally:
         conn.close()
@@ -110,14 +106,13 @@ def test_failed_migration_aborts_and_raises(tmp_path):
     conn = duckdb.connect(str(db))
     try:
         from ariadne_eval.storage.base import StoreError
+
         with pytest.raises(StoreError) as exc:
             apply_pending(conn, tmp_path)
         assert "002" in str(exc.value)
 
         # v1 still applied (committed before failure)
-        rows = conn.execute(
-            "SELECT version FROM _meta ORDER BY version"
-        ).fetchall()
+        rows = conn.execute("SELECT version FROM _meta ORDER BY version").fetchall()
         assert rows == [(1,)]
     finally:
         conn.close()

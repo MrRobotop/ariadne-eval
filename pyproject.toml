@@ -200,6 +200,8 @@ exclude_lines = [
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
     "@overload",
+    # Protocol stub method bodies are just ``...`` and never executed.
+    '^\s*\.\.\.\s*$',
 ]
 show_missing = true
 skip_covered = false

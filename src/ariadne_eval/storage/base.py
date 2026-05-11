@@ -30,6 +30,7 @@ class TrajectoryNotFoundError(StoreError):
     """Raised by ``get_trajectory`` when no row matches the given id."""
 
     def __init__(self, traj_id: str) -> None:
+        """Build the error with the missing trajectory id."""
         super().__init__(f"trajectory not found: {traj_id!r}")
         self.traj_id = traj_id
 
@@ -38,6 +39,7 @@ class MetadataTooLargeError(StoreError):
     """Raised when a trajectory or step's serialized metadata exceeds the cap."""
 
     def __init__(self, *, actual: int, max: int) -> None:
+        """Build the error with the offending and allowed byte sizes."""
         super().__init__(f"metadata is {actual} bytes, max {max} bytes")
         self.actual = actual
         self.max = max
@@ -46,15 +48,11 @@ class MetadataTooLargeError(StoreError):
 class Store(Protocol):
     """Abstract storage backend for trajectories and their step trees."""
 
-    async def save_trajectory(
-        self, traj: Trajectory, steps: list[Step]
-    ) -> None:
+    async def save_trajectory(self, traj: Trajectory, steps: list[Step]) -> None:
         """Persist a trajectory and its steps. Upserts on the same id."""
         ...
 
-    async def get_trajectory(
-        self, traj_id: str
-    ) -> tuple[Trajectory, list[Step]]:
+    async def get_trajectory(self, traj_id: str) -> tuple[Trajectory, list[Step]]:
         """Load a trajectory + its steps. Raises TrajectoryNotFoundError on miss."""
         ...
 

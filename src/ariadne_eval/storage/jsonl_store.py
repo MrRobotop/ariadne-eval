@@ -23,7 +23,7 @@ __all__ = ["export_jsonl", "import_jsonl"]
 
 
 async def export_jsonl(
-    store: "Store",
+    store: Store,
     path: Path,
     *,
     agent_name: str | None = None,
@@ -71,7 +71,7 @@ async def export_jsonl(
     return written
 
 
-async def import_jsonl(path: Path, store: "Store") -> int:
+async def import_jsonl(path: Path, store: Store) -> int:
     """Read a JSONL file and save each trajectory + steps into ``store``.
 
     Returns the number imported. Raises :class:`ValueError` (with the
@@ -91,9 +91,7 @@ async def import_jsonl(path: Path, store: "Store") -> int:
             except json.JSONDecodeError as exc:
                 raise ValueError(f"line {lineno}: invalid JSON ({exc})") from exc
             if not isinstance(obj, dict) or "trajectory" not in obj or "steps" not in obj:
-                raise ValueError(
-                    f"line {lineno}: missing 'trajectory' or 'steps' key"
-                )
+                raise ValueError(f"line {lineno}: missing 'trajectory' or 'steps' key")
             try:
                 traj = Trajectory.model_validate(obj["trajectory"])
                 steps = [Step.model_validate(s) for s in obj["steps"]]

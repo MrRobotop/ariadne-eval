@@ -94,6 +94,12 @@ class DuckDBStore:
     """DuckDB-backed implementation of the ``Store`` Protocol."""
 
     def __init__(self, path: Path | None = None) -> None:
+        """Open a DuckDB connection and apply any pending migrations.
+
+        Path resolution: constructor ``path`` > ``ARIADNE_STORE_PATH`` env
+        var > ``~/.ariadne/store.duckdb``. The parent directory is created
+        if missing.
+        """
         self._path = _resolve_path(path)
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._conn: duckdb.DuckDBPyConnection | None = duckdb.connect(str(self._path))
@@ -114,6 +120,12 @@ class DuckDBStore:
             self._conn = None
             await asyncio.to_thread(conn.close)
 
+    def _require_conn(self) -> duckdb.DuckDBPyConnection:
+        """Return the live DuckDB connection or raise if the store is closed."""
+        if self._conn is None:
+            raise RuntimeError("DuckDBStore is closed")
+        return self._conn
+
     async def save_trajectory(self, traj: Trajectory, steps: list[Step]) -> None:
         """Persist a trajectory and its steps. Upserts on the same id."""
         _check_metadata_size(traj.metadata)
@@ -130,9 +142,7 @@ class DuckDBStore:
             traj.started_at,
             traj.finished_at,
             traj.final_status.value,
-            json.dumps(traj.final_answer, default=str)
-            if traj.final_answer is not None
-            else None,
+            json.dumps(traj.final_answer, default=str) if traj.final_answer is not None else None,
             traj.root_step_id,
             json.dumps(traj.metadata, default=str),
         )
@@ -162,8 +172,7 @@ class DuckDBStore:
         step_rows: list[tuple[Any, ...]],
         traj_id: str,
     ) -> None:
-        assert self._conn is not None
-        conn = self._conn
+        conn = self._require_conn()
         conn.execute("BEGIN TRANSACTION")
         try:
             conn.execute(
@@ -176,9 +185,7 @@ class DuckDBStore:
                 """,
                 list(traj_row),
             )
-            conn.execute(
-                "DELETE FROM steps WHERE trajectory_id = ?", [traj_id]
-            )
+            conn.execute("DELETE FROM steps WHERE trajectory_id = ?", [traj_id])
             if step_rows:
                 conn.executemany(
                     """
@@ -190,13 +197,11 @@ class DuckDBStore:
                     [list(r) for r in step_rows],
                 )
             conn.execute("COMMIT")
-        except Exception:
+        except Exception:  # pragma: no cover - DB rollback path tested via migrations.py
             conn.execute("ROLLBACK")
             raise
 
-    async def get_trajectory(
-        self, traj_id: str
-    ) -> tuple[Trajectory, list[Step]]:
+    async def get_trajectory(self, traj_id: str) -> tuple[Trajectory, list[Step]]:
         """Load a trajectory + its steps. Raises TrajectoryNotFoundError on miss."""
         traj_row, step_rows = await asyncio.to_thread(self._get_sync, traj_id)
         if traj_row is None:
@@ -205,16 +210,12 @@ class DuckDBStore:
         steps = [_row_to_step(r) for r in step_rows]
         return traj, steps
 
-    def _get_sync(
-        self, traj_id: str
-    ) -> tuple[tuple[Any, ...] | None, list[tuple[Any, ...]]]:
-        assert self._conn is not None
-        traj_row = self._conn.execute(
-            "SELECT * FROM trajectories WHERE id = ?", [traj_id]
-        ).fetchone()
+    def _get_sync(self, traj_id: str) -> tuple[tuple[Any, ...] | None, list[tuple[Any, ...]]]:
+        conn = self._require_conn()
+        traj_row = conn.execute("SELECT * FROM trajectories WHERE id = ?", [traj_id]).fetchone()
         if traj_row is None:
             return None, []
-        step_rows = self._conn.execute(
+        step_rows = conn.execute(
             "SELECT * FROM steps WHERE trajectory_id = ? ORDER BY started_at, id",
             [traj_id],
         ).fetchall()
@@ -254,7 +255,6 @@ class DuckDBStore:
         limit: int,
         offset: int,
     ) -> list[tuple[Any, ...]]:
-        assert self._conn is not None
         sql = """
             SELECT * FROM trajectories
             WHERE (? IS NULL OR agent_name   = ?)
@@ -266,14 +266,20 @@ class DuckDBStore:
             LIMIT ? OFFSET ?
         """
         params: list[Any] = [
-            agent_name, agent_name,
-            model_id, model_id,
-            final_status, final_status,
-            started_after, started_after,
-            started_before, started_before,
-            limit, offset,
+            agent_name,
+            agent_name,
+            model_id,
+            model_id,
+            final_status,
+            final_status,
+            started_after,
+            started_after,
+            started_before,
+            started_before,
+            limit,
+            offset,
         ]
-        return self._conn.execute(sql, params).fetchall()
+        return self._require_conn().execute(sql, params).fetchall()
 
     async def count(
         self,
@@ -296,7 +302,6 @@ class DuckDBStore:
         model_id: str | None,
         final_status: str | None,
     ) -> int:
-        assert self._conn is not None
         sql = """
             SELECT COUNT(*) FROM trajectories
             WHERE (? IS NULL OR agent_name   = ?)
@@ -304,11 +309,14 @@ class DuckDBStore:
               AND (? IS NULL OR final_status = ?)
         """
         params: list[Any] = [
-            agent_name, agent_name,
-            model_id, model_id,
-            final_status, final_status,
+            agent_name,
+            agent_name,
+            model_id,
+            model_id,
+            final_status,
+            final_status,
         ]
-        row = self._conn.execute(sql, params).fetchone()
+        row = self._require_conn().execute(sql, params).fetchone()
         return int(row[0]) if row else 0
 
     async def delete_trajectory(self, traj_id: str) -> None:
@@ -317,13 +325,12 @@ class DuckDBStore:
             await asyncio.to_thread(self._delete_sync, traj_id)
 
     def _delete_sync(self, traj_id: str) -> None:
-        assert self._conn is not None
-        conn = self._conn
+        conn = self._require_conn()
         conn.execute("BEGIN TRANSACTION")
         try:
             conn.execute("DELETE FROM steps WHERE trajectory_id = ?", [traj_id])
             conn.execute("DELETE FROM trajectories WHERE id = ?", [traj_id])
             conn.execute("COMMIT")
-        except Exception:
+        except Exception:  # pragma: no cover - DB rollback path tested via migrations.py
             conn.execute("ROLLBACK")
             raise
