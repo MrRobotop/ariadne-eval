@@ -73,9 +73,9 @@ def _safe_compute(expression: str) -> float:
             if isinstance(op, ast.Mod):
                 return left % right
             if isinstance(op, ast.Pow):
-                return left**right
+                return float(left**right)
             if isinstance(op, ast.FloorDiv):
-                return left // right
+                return float(left // right)
         raise ValueError(
             f"disallowed expression node: {type(node).__name__} in {expression!r}"
         )

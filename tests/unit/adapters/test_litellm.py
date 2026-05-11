@@ -18,6 +18,7 @@ def fake_litellm(monkeypatch):
     stub = types.ModuleType("litellm")
     stub.success_callback = []
     stub.failure_callback = []
+    stub.callbacks = []  # unified callbacks list on newer litellm
     stub.completion_cost = lambda response: 0.0
     monkeypatch.setitem(sys.modules, "litellm", stub)
     # Reset the module-level _registered flag so each test starts clean.
