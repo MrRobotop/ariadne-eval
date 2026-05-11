@@ -19,9 +19,7 @@ from ariadne_eval.tracing.context import (
 @pytest.mark.fast
 async def test_start_trajectory_yields_handle_and_resets_on_exit():
     assert current_trajectory() is None
-    async with start_trajectory(
-        "t", agent_name="a", agent_version="0.1", model_id="m"
-    ) as traj:
+    async with start_trajectory("t", agent_name="a", agent_version="0.1", model_id="m") as traj:
         assert isinstance(traj, TrajectoryHandle)
         assert traj.task == "t"
         assert current_trajectory() is traj
@@ -32,9 +30,7 @@ async def test_start_trajectory_yields_handle_and_resets_on_exit():
 async def test_handle_id_is_a_ulid():
     from ariadne_eval.core.ids import is_valid_id
 
-    async with start_trajectory(
-        "t", agent_name="a", agent_version="0.1", model_id="m"
-    ) as traj:
+    async with start_trajectory("t", agent_name="a", agent_version="0.1", model_id="m") as traj:
         assert is_valid_id(traj.id)
 
 
@@ -56,9 +52,7 @@ async def test_handle_snapshot_succeeded():
 
 @pytest.mark.fast
 async def test_handle_snapshot_respects_override():
-    async with start_trajectory(
-        "t", agent_name="a", agent_version="0.1", model_id="m"
-    ) as traj:
+    async with start_trajectory("t", agent_name="a", agent_version="0.1", model_id="m") as traj:
         traj.set_final_status(TrajectoryStatus.ABORTED)
     snap = traj.snapshot(
         finished_at=datetime.now(tz=UTC),
@@ -69,9 +63,7 @@ async def test_handle_snapshot_respects_override():
 
 @pytest.mark.fast
 async def test_handle_add_metadata():
-    async with start_trajectory(
-        "t", agent_name="a", agent_version="0.1", model_id="m"
-    ) as traj:
+    async with start_trajectory("t", agent_name="a", agent_version="0.1", model_id="m") as traj:
         traj.add_metadata("user", "alice")
     snap = traj.snapshot(
         finished_at=datetime.now(tz=UTC),
@@ -98,14 +90,12 @@ async def test_initial_metadata_passed_through():
 
 @pytest.mark.fast
 async def test_exception_marks_failed_and_re_raises():
-    class Boom(Exception):
+    class BoomError(Exception):
         pass
 
-    with pytest.raises(Boom):
-        async with start_trajectory(
-            "t", agent_name="a", agent_version="0.1", model_id="m"
-        ) as traj:
-            raise Boom("kaboom")
+    with pytest.raises(BoomError):
+        async with start_trajectory("t", agent_name="a", agent_version="0.1", model_id="m") as traj:
+            raise BoomError("kaboom")
     snap = traj.snapshot(
         finished_at=datetime.now(tz=UTC),
         default_status=TrajectoryStatus.SUCCEEDED,
@@ -113,14 +103,12 @@ async def test_exception_marks_failed_and_re_raises():
     assert snap.final_status == TrajectoryStatus.FAILED
     err = snap.metadata.get("_trajectory_error")
     assert err is not None
-    assert "Boom" in str(err)
+    assert "BoomError" in str(err)
 
 
 @pytest.mark.fast
 async def test_current_step_is_none_at_top():
-    async with start_trajectory(
-        "t", agent_name="a", agent_version="0.1", model_id="m"
-    ):
+    async with start_trajectory("t", agent_name="a", agent_version="0.1", model_id="m"):
         assert current_step() is None
 
 

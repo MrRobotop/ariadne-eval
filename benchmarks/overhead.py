@@ -17,7 +17,6 @@ import pytest
 from ariadne_eval.tracing.context import start_trajectory
 from ariadne_eval.tracing.decorator import trace_step
 
-
 _N = 1000
 
 
@@ -34,9 +33,7 @@ async def _traced_loop() -> int:
         return i
 
     total = 0
-    async with start_trajectory(
-        "bench", agent_name="bench", agent_version="0", model_id="none"
-    ):
+    async with start_trajectory("bench", agent_name="bench", agent_version="0", model_id="none"):
         for i in range(_N):
             total += await inner(i)
     return total
@@ -67,9 +64,7 @@ async def _traced_loop_with_io() -> int:
         return i
 
     total = 0
-    async with start_trajectory(
-        "bench", agent_name="bench", agent_version="0", model_id="none"
-    ):
+    async with start_trajectory("bench", agent_name="bench", agent_version="0", model_id="none"):
         for i in range(_N):
             total += await inner(i)
     return total

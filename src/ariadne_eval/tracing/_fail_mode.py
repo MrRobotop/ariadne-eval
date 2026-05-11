@@ -54,8 +54,7 @@ def _resolve_fail_mode() -> FailMode:
         return FailMode(raw.lower())
     except ValueError as exc:
         raise ValueError(
-            f"{_ENV_VAR}={raw!r} is invalid; expected one of "
-            f"{[m.value for m in FailMode]}"
+            f"{_ENV_VAR}={raw!r} is invalid; expected one of {[m.value for m in FailMode]}"
         ) from exc
 
 

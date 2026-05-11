@@ -16,7 +16,7 @@ from ariadne_eval.tracing.decorator import trace_step
 @dataclass
 class _Node:
     name: str
-    children: list["_Node"]
+    children: list[_Node]
 
 
 def _trees(max_depth: int, max_breadth: int) -> st.SearchStrategy[_Node]:
@@ -58,9 +58,7 @@ def _expected_parents(node: _Node, parent: str | None = None) -> list[tuple[str,
 @settings(max_examples=30, deadline=None)
 def test_call_tree_matches_trajectory_tree(tree):
     async def run():
-        async with start_trajectory(
-            "t", agent_name="a", agent_version="0.1", model_id="m"
-        ) as traj:
+        async with start_trajectory("t", agent_name="a", agent_version="0.1", model_id="m") as traj:
             await _run_tree(tree)
         return traj
 
@@ -73,6 +71,7 @@ def test_call_tree_matches_trajectory_tree(tree):
         actual_parent_names.append((s.name, parent_name))
 
     expected = _expected_parents(tree)
+
     # Multiset comparison: tolerates traversal order differences.
     # Key maps None → "" so sorted() can compare across (name, None) tuples.
     def _key(pair: tuple[str, str | None]) -> tuple[str, str]:

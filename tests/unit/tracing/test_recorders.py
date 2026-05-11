@@ -21,9 +21,7 @@ from ariadne_eval.tracing.decorator import (
 
 @pytest.mark.fast
 async def test_record_llm_call_attaches_to_trajectory_root_when_no_step():
-    async with start_trajectory(
-        "t", agent_name="a", agent_version="0.1", model_id="m"
-    ) as traj:
+    async with start_trajectory("t", agent_name="a", agent_version="0.1", model_id="m") as traj:
         sid = await record_llm_call(
             model_id="claude",
             prompt_messages=[Message(role="user", content="hi")],
@@ -54,9 +52,7 @@ async def test_record_llm_call_attaches_to_current_step():
             latency_ms=1.0,
         )
 
-    async with start_trajectory(
-        "t", agent_name="a", agent_version="0.1", model_id="m"
-    ) as traj:
+    async with start_trajectory("t", agent_name="a", agent_version="0.1", model_id="m") as traj:
         await outer()
 
     outer_step = next(s for s in traj._steps if s.name == "outer")
@@ -66,9 +62,7 @@ async def test_record_llm_call_attaches_to_current_step():
 
 @pytest.mark.fast
 async def test_record_tool_call_with_error_marks_failed():
-    async with start_trajectory(
-        "t", agent_name="a", agent_version="0.1", model_id="m"
-    ) as traj:
+    async with start_trajectory("t", agent_name="a", agent_version="0.1", model_id="m") as traj:
         await record_tool_call(
             tool_name="search",
             arguments={"q": "x"},
@@ -85,9 +79,7 @@ async def test_record_tool_call_with_error_marks_failed():
 
 @pytest.mark.fast
 async def test_record_tool_call_default_name_is_tool_name():
-    async with start_trajectory(
-        "t", agent_name="a", agent_version="0.1", model_id="m"
-    ) as traj:
+    async with start_trajectory("t", agent_name="a", agent_version="0.1", model_id="m") as traj:
         await record_tool_call(
             tool_name="calculator",
             arguments={"expr": "2+2"},

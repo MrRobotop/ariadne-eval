@@ -34,7 +34,7 @@ class Sampler(Protocol):
         agent_name: str,
         agent_version: str,
         model_id: str,
-        metadata: dict[str, "JsonValue"],
+        metadata: dict[str, JsonValue],
     ) -> bool:
         """Return ``True`` to record the trajectory, ``False`` to no-op it."""
         ...
@@ -64,7 +64,7 @@ class RateSampler:
         """Validate rate and build the local RNG."""
         if not 0.0 <= self.rate <= 1.0:
             raise ValueError(f"rate must be in [0.0, 1.0]; got {self.rate}")
-        self._rng = random.Random(self.seed)
+        self._rng = random.Random(self.seed)  # noqa: S311 - sampling, not crypto
 
     def should_sample(self, **_kw: Any) -> bool:
         """Return True with probability ``rate``."""

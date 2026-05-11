@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import wraps
 from typing import Any, Literal, TypeVar, cast
 
@@ -47,8 +47,7 @@ def trace_step(
     """
     if step_type != "internal":
         raise ValueError(
-            f"@trace_step only supports step_type='internal' in v0.0.4; "
-            f"got {step_type!r}"
+            f"@trace_step only supports step_type='internal' in v0.0.4; got {step_type!r}"
         )
 
     def decorator(fn: F) -> F:
@@ -106,7 +105,7 @@ def trace_step(
 def _begin_step(*, name: str, traj: TrajectoryHandle) -> tuple[Step, Any]:
     """Build a RUNNING Step and set the current_step ContextVar."""
     parent = current_step()
-    started = datetime.now(tz=timezone.utc)
+    started = datetime.now(tz=UTC)
     step = Step(
         id=new_id(),
         trajectory_id=traj.id,
@@ -133,7 +132,7 @@ def _finish_step(
     would otherwise reject a partial transition to ``FAILED`` before
     ``error`` is also set. The model validator only runs at construction.
     """
-    object.__setattr__(step, "finished_at", datetime.now(tz=timezone.utc))
+    object.__setattr__(step, "finished_at", datetime.now(tz=UTC))
     object.__setattr__(step, "status", status)
     if exc is not None:
         object.__setattr__(
@@ -170,7 +169,7 @@ async def record_llm_call(
         return ""
 
     parent = current_step()
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     payload = LLMCallPayload(
         model_id=model_id,
         prompt_messages=prompt_messages,
@@ -218,7 +217,7 @@ async def record_tool_call(
         return ""
 
     parent = current_step()
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     payload = ToolCallPayload(
         tool_name=tool_name,
         arguments=arguments,

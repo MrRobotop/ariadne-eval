@@ -11,7 +11,6 @@ from ariadne_eval.tracing.sampler import (
     TaskFilterSampler,
 )
 
-
 _KW = dict(
     task="t",
     agent_name="a",

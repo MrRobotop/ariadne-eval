@@ -21,9 +21,7 @@ async def test_parallel_children_under_gather_attach_to_parent():
     async def parent() -> list[int]:
         return await asyncio.gather(child(1), child(2), child(3))
 
-    async with start_trajectory(
-        "t", agent_name="a", agent_version="0.1", model_id="m"
-    ) as traj:
+    async with start_trajectory("t", agent_name="a", agent_version="0.1", model_id="m") as traj:
         await parent()
 
     parent_step = next(s for s in traj._steps if s.name == "parent")
@@ -46,9 +44,7 @@ async def test_parallel_children_under_taskgroup_attach_to_parent():
             tg.create_task(child(1))
             tg.create_task(child(2))
 
-    async with start_trajectory(
-        "t", agent_name="a", agent_version="0.1", model_id="m"
-    ) as traj:
+    async with start_trajectory("t", agent_name="a", agent_version="0.1", model_id="m") as traj:
         await parent()
 
     parent_step = next(s for s in traj._steps if s.name == "parent")

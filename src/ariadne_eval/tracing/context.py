@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from ariadne_eval.core.ids import new_id
@@ -26,15 +26,13 @@ __all__ = [
 ]
 
 
-_current_trajectory: ContextVar["TrajectoryHandle | None"] = ContextVar(
+_current_trajectory: ContextVar[TrajectoryHandle | None] = ContextVar(
     "ariadne_current_trajectory", default=None
 )
-_current_step: ContextVar["Step | None"] = ContextVar(
-    "ariadne_current_step", default=None
-)
+_current_step: ContextVar[Step | None] = ContextVar("ariadne_current_step", default=None)
 
 
-def current_trajectory() -> "TrajectoryHandle | None":
+def current_trajectory() -> TrajectoryHandle | None:
     """Return the active trajectory handle in this async context, or None."""
     return _current_trajectory.get()
 
@@ -119,7 +117,7 @@ async def start_trajectory(
     agent_name: str,
     agent_version: str,
     model_id: str,
-    store: "Store | None" = None,
+    store: Store | None = None,
     sampler: Sampler | None = None,
     metadata: dict[str, JsonValue] | None = None,
 ) -> AsyncIterator[TrajectoryHandle]:
@@ -139,7 +137,7 @@ async def start_trajectory(
         metadata=initial_metadata,
     )
 
-    started_at = datetime.now(tz=timezone.utc)
+    started_at = datetime.now(tz=UTC)
     handle = TrajectoryHandle(
         id=new_id(),
         task=task,
@@ -161,20 +159,16 @@ async def start_trajectory(
             handle._metadata["_trajectory_error"] = {
                 "type": type(exc).__name__,
                 "message": str(exc),
-                "traceback": "".join(
-                    _tb.format_exception(type(exc), exc, exc.__traceback__)
-                ),
+                "traceback": "".join(_tb.format_exception(type(exc), exc, exc.__traceback__)),
             }
             handle._final_status_override = TrajectoryStatus.FAILED
         raise
     finally:
         _current_trajectory.reset(token)
         if not handle.is_noop and store is not None:
-            default_status = (
-                TrajectoryStatus.FAILED if raised else TrajectoryStatus.SUCCEEDED
-            )
+            default_status = TrajectoryStatus.FAILED if raised else TrajectoryStatus.SUCCEEDED
             snap = handle.snapshot(
-                finished_at=datetime.now(tz=timezone.utc),
+                finished_at=datetime.now(tz=UTC),
                 default_status=default_status,
             )
             await store.save_trajectory(snap, list(handle._steps))
