@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Tracing instrumentation: `start_trajectory` async context manager,
+  `@trace_step` decorator (sync + async via `inspect.iscoroutinefunction`),
+  `record_llm_call` / `record_tool_call` recorders, `Sampler` Protocol
+  with `AlwaysSampler` / `RateSampler` / `TaskFilterSampler`,
+  `enable_litellm_autotrace` for LiteLLM integration. Per-trajectory
+  sampling produces full no-ops for unsampled trajectories. Fail mode
+  policy (`ARIADNE_FAIL_MODE`: strict / warn / silent) governs unattached
+  recordings via a real runtime raise (not `assert`). ContextVar-based
+  parent attachment works correctly under `asyncio.gather` and
+  `TaskGroup`. Persistence model: build in memory, save once on context
+  exit (async queue + background drainer deferred to a later phase).
+- `examples/01_quickstart/` runnable ReAct-style traced example.
+- `benchmarks/overhead.py` measures `@trace_step` overhead against both a
+  no-op micro-benchmark and a realistic I/O-bound loop (~3% overhead on
+  the realistic benchmark; ~5 μs absolute add per step).
+
 - Storage layer: `Store` Protocol, `DuckDBStore` implementation, filesystem
   migrations under `storage/migrations_sql/`, JSONL export/import functions
   (`export_jsonl`, `import_jsonl`), and storage error hierarchy
