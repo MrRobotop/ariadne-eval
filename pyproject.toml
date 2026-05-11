@@ -35,6 +35,7 @@ classifiers = [
 dependencies = [
     "pydantic>=2.0",
     "duckdb>=0.10",
+    "pytz>=2024.1",  # required by duckdb-python for TIMESTAMPTZ round-trips
     "click>=8.1",
     "rich>=13.0",
     "anyio>=4.0",
@@ -199,6 +200,8 @@ exclude_lines = [
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
     "@overload",
+    # Protocol stub method bodies are just ``...`` and never executed.
+    '^\s*\.\.\.\s*$',
 ]
 show_missing = true
 skip_covered = false

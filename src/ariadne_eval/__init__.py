@@ -24,23 +24,38 @@ from ariadne_eval.core.trajectory import (
     Trajectory,
     UserInputPayload,
 )
+from ariadne_eval.storage.base import (
+    MetadataTooLargeError,
+    Store,
+    StoreError,
+    TrajectoryNotFoundError,
+)
+from ariadne_eval.storage.duckdb_store import DuckDBStore
+from ariadne_eval.storage.jsonl_store import export_jsonl, import_jsonl
 
 __all__ = [
     "ContentBlock",
+    "DuckDBStore",
     "InternalPayload",
     "JsonValue",
     "LLMCallPayload",
     "Message",
+    "MetadataTooLargeError",
     "Step",
     "StepError",
     "StepStatus",
+    "Store",
+    "StoreError",
     "TextBlock",
     "ToolCallPayload",
     "ToolCallRef",
     "Trajectory",
+    "TrajectoryNotFoundError",
     "TrajectoryStatus",
     "UserInputPayload",
     "__version__",
+    "export_jsonl",
+    "import_jsonl",
     "is_valid_id",
     "new_id",
 ]
