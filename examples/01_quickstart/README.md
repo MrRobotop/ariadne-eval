@@ -1,6 +1,18 @@
 # 01 — Quickstart
 
-A 60-line example that traces a tiny ReAct-style loop end-to-end.
+A real ReAct agent traced end-to-end. The agent uses an LLM (default
+`gpt-4o-mini` via litellm) and two stub tools (`calculator` + `search`).
+
+## Prerequisites
+
+Set `OPENAI_API_KEY` in your shell or in `.env`:
+
+```bash
+export OPENAI_API_KEY=sk-...
+```
+
+To use a different model (e.g. Anthropic Claude), set the matching env
+var and edit `model_id="..."` in `main.py`. LiteLLM handles routing.
 
 ## Run
 
@@ -8,19 +20,27 @@ A 60-line example that traces a tiny ReAct-style loop end-to-end.
 uv run python examples/01_quickstart/main.py
 ```
 
-You should see something like:
+Expected output (the LLM's exact wording may vary):
 
 ```
-trajectory id: 01J...
 final answer: 65.16666666666667
+trajectory persisted to: /Users/.../.ariadne/quickstart.duckdb
 ```
-
-The trajectory is persisted to `~/.ariadne/quickstart.duckdb`. Once the
-replay UI ships (v0.0.9), you can run `ariadne ui` to view it.
 
 ## What it shows
 
-- `start_trajectory(...)` opens an async context.
-- `@trace_step("name")` makes any function appear as a Step in the trace.
-- `record_llm_call(...)` and `record_tool_call(...)` capture typed payloads.
-- The whole trajectory is persisted to DuckDB on context exit.
+- `start_trajectory(...)` opens an async tracing context.
+- `enable_litellm_autotrace()` auto-records every `litellm.acompletion`
+  call as an `llm_call` Step.
+- `@trace_step("tool_calculator")` wraps each tool invocation as an
+  `internal` Step (the structural step in the trace tree).
+- `record_tool_call(...)` adds the typed `ToolCallPayload` as a child.
+- The full trajectory is saved to DuckDB at context exit.
+
+Once the replay UI ships (v0.0.9), point `ariadne ui` at the same DuckDB
+file to drill into the trace.
+
+## Re-running
+
+Each run produces a new trajectory; the DuckDB file grows over time.
+Delete `~/.ariadne/quickstart.duckdb` to start fresh.
