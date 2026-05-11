@@ -76,7 +76,9 @@ nav:
       - concepts/index.md
       - Trajectory model: concepts/trajectory.md
       - Storage: concepts/storage.md
+      - Tracing: concepts/tracing.md
   - Tutorials:
       - tutorials/index.md
   - Reference:
       - reference/index.md
+      - Tracing: reference/tracing.md

@@ -73,6 +73,21 @@ def test_public_api_exports_core_types():
         "MetadataTooLargeError",
         "export_jsonl",
         "import_jsonl",
+        # Tracing
+        "start_trajectory",
+        "current_trajectory",
+        "current_step",
+        "trace_step",
+        "record_llm_call",
+        "record_tool_call",
+        "Sampler",
+        "AlwaysSampler",
+        "RateSampler",
+        "TaskFilterSampler",
+        "enable_litellm_autotrace",
+        "TrajectoryHandle",
+        "FailMode",
+        "UnattachedTracingWarning",
     }
     missing = expected - set(ariadne_eval.__all__)
     assert not missing, f"Missing from public API: {missing}"
