@@ -53,7 +53,7 @@ def _safe_compute(expression: str) -> float:
     def _walk(node: ast.AST) -> float:
         if isinstance(node, ast.Expression):
             return _walk(node.body)
-        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        if isinstance(node, ast.Constant) and isinstance(node.value, int | float):
             return float(node.value)
         if isinstance(node, ast.UnaryOp) and isinstance(node.op, _ALLOWED_UNARY_OPS):
             operand = _walk(node.operand)
@@ -76,9 +76,7 @@ def _safe_compute(expression: str) -> float:
                 return float(left**right)
             if isinstance(op, ast.FloorDiv):
                 return float(left // right)
-        raise ValueError(
-            f"disallowed expression node: {type(node).__name__} in {expression!r}"
-        )
+        raise ValueError(f"disallowed expression node: {type(node).__name__} in {expression!r}")
 
     return _walk(tree)
 

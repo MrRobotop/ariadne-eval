@@ -20,11 +20,7 @@ from ariadne_eval.examples.react_agent import (
 
 @pytest.mark.fast
 def test_parse_action_and_input():
-    text = (
-        "Thought: I need to compute 17*23.\n"
-        "Action: calculator\n"
-        "Action Input: 17*23\n"
-    )
+    text = "Thought: I need to compute 17*23.\nAction: calculator\nAction Input: 17*23\n"
     action, action_input, final = _parse_assistant_text(text)
     assert action == "calculator"
     assert action_input == "17*23"
@@ -77,9 +73,7 @@ async def test_step_limit_exhaustion(monkeypatch):
 
     async def _stub_call_llm(messages):
         call_count["n"] += 1
-        return _fake_response(
-            "Thought: keep going\nAction: calculator\nAction Input: 1+1\n"
-        )
+        return _fake_response("Thought: keep going\nAction: calculator\nAction Input: 1+1\n")
 
     monkeypatch.setattr(agent, "_call_llm", _stub_call_llm)
 

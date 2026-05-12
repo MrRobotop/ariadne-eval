@@ -33,7 +33,7 @@ class ReactParseError(ValueError):
     """Raised when an assistant message does not match the expected format."""
 
 
-class StepLimitExhausted(RuntimeError):
+class StepLimitExhausted(RuntimeError):  # noqa: N818 - stop-iteration-style name
     """Raised when the loop exceeds ``max_steps`` without emitting FINAL ANSWER."""
 
 
@@ -110,7 +110,7 @@ class ReactAgent:
 
         return await litellm.acompletion(model=self.model_id, messages=messages)
 
-    async def arun(self, task: str, *, store: "Store | None" = None) -> str:
+    async def arun(self, task: str, *, store: Store | None = None) -> str:
         """Run the loop until FINAL ANSWER or ``max_steps`` exhausted.
 
         Returns the final answer string. Raises :class:`StepLimitExhausted`
