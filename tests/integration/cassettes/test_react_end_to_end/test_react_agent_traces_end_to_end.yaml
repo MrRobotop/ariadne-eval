@@ -1,0 +1,56 @@
+interactions:
+  - request:
+      body: ''
+      headers:
+        Authorization:
+          - REDACTED
+        Content-Type:
+          - application/json
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: '{"id":"chatcmpl-stub-1","object":"chat.completion","created":1700000000,"model":"gpt-4o-mini","choices":[{"index":0,"message":{"role":"assistant","content":"Thought: I need to compute 17*23 first.\nAction: calculator\nAction Input: 17*23\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":50,"completion_tokens":20,"total_tokens":70}}'
+      headers:
+        Content-Type:
+          - application/json
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: ''
+      headers:
+        Authorization:
+          - REDACTED
+        Content-Type:
+          - application/json
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: '{"id":"chatcmpl-stub-2","object":"chat.completion","created":1700000001,"model":"gpt-4o-mini","choices":[{"index":0,"message":{"role":"assistant","content":"Thought: 17*23 is 391. The word ''banana'' has 6 letters. So I divide.\nAction: calculator\nAction Input: 391/6\n"},"finish_reason":"stop"}],"usage":{"prompt_tokens":75,"completion_tokens":25,"total_tokens":100}}'
+      headers:
+        Content-Type:
+          - application/json
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: ''
+      headers:
+        Authorization:
+          - REDACTED
+        Content-Type:
+          - application/json
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: '{"id":"chatcmpl-stub-3","object":"chat.completion","created":1700000002,"model":"gpt-4o-mini","choices":[{"index":0,"message":{"role":"assistant","content":"Thought: The result is 65.166666...\nFINAL ANSWER: 65.16666666666667"},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":15,"total_tokens":115}}'
+      headers:
+        Content-Type:
+          - application/json
+      status:
+        code: 200
+        message: OK
+version: 1

@@ -22,16 +22,35 @@ _registered = False
 
 
 def enable_litellm_autotrace() -> None:
-    """Register the auto-trace callbacks with LiteLLM. Idempotent."""
+    """Register the auto-trace callbacks with LiteLLM. Idempotent.
+
+    LiteLLM has multiple callback registries. The unified ``callbacks``
+    list handles both sync and async callbacks for both ``completion`` and
+    ``acompletion`` — litellm dispatches based on callable shape. The
+    legacy ``success_callback`` / ``failure_callback`` are sync-only;
+    we still append to them so sync ``completion`` callers also get
+    traces.
+    """
     global _registered
     if _registered:
         return
     import litellm  # lazy
 
+    # Newer litellm exposes a unified ``callbacks`` list that handles both
+    # sync ``completion`` and async ``acompletion`` paths. Fall back gracefully
+    # for older versions or stub modules in tests.
+    callbacks = getattr(litellm, "callbacks", None)
+    if callbacks is not None:
+        if _on_success not in callbacks:
+            callbacks.append(_on_success)
+        if _on_failure not in callbacks:
+            callbacks.append(_on_failure)
+
     if _on_success not in litellm.success_callback:
         litellm.success_callback.append(_on_success)
     if _on_failure not in litellm.failure_callback:
         litellm.failure_callback.append(_on_failure)
+
     _registered = True
 
 
@@ -58,11 +77,25 @@ def _cost_from_response(response: Any) -> float:
         return 0.0
 
 
+def _latency_ms(start_time: Any, end_time: Any) -> float:
+    """Compute latency in ms, tolerating both float and datetime inputs.
+
+    LiteLLM passes ``datetime.datetime`` objects to its callbacks; their
+    difference is a ``timedelta`` which would fail Pydantic validation on
+    ``LLMCallPayload.latency_ms: float``. Plain numeric inputs go through
+    the float multiplication path.
+    """
+    delta = end_time - start_time
+    if hasattr(delta, "total_seconds"):
+        return float(delta.total_seconds()) * 1000.0
+    return float(delta) * 1000.0
+
+
 async def _on_success(
     kwargs: dict[str, Any],
     response: Any,
-    start_time: float,
-    end_time: float,
+    start_time: Any,
+    end_time: Any,
 ) -> None:
     """LiteLLM success callback: record an llm_call Step."""
     traj = current_trajectory()
@@ -91,15 +124,15 @@ async def _on_success(
         output_tokens=output_tokens,
         cost_usd=_cost_from_response(response),
         temperature=kwargs.get("temperature"),
-        latency_ms=(end_time - start_time) * 1000.0,
+        latency_ms=_latency_ms(start_time, end_time),
     )
 
 
 async def _on_failure(
     kwargs: dict[str, Any],
     response: Any,
-    start_time: float,
-    end_time: float,
+    start_time: Any,
+    end_time: Any,
 ) -> None:
     """LiteLLM failure callback: record a failed llm_call Step."""
     traj = current_trajectory()
@@ -117,5 +150,5 @@ async def _on_failure(
         output_tokens=0,
         cost_usd=0.0,
         temperature=kwargs.get("temperature"),
-        latency_ms=(end_time - start_time) * 1000.0,
+        latency_ms=_latency_ms(start_time, end_time),
     )

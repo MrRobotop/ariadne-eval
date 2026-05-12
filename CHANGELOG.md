@@ -8,6 +8,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Reference ReAct agent (`ariadne_eval.examples.react_agent.ReactAgent`)
+  with text-parsed ReAct loop, two stub tools (`calculator` via
+  AST-whitelisted arithmetic, `search` via dict lookup), and
+  `StepLimitExhausted` / `ReactParseError` errors. Used by
+  `examples/01_quickstart/` and the new end-to-end integration test.
+- End-to-end integration test via a hand-crafted VCR cassette
+  (`tests/integration/test_react_end_to_end.py`) with
+  `record_mode="none"` so CI never makes real HTTP calls. Auth headers
+  redacted via the `vcr_config` fixture. `LITELLM_LOCAL_MODEL_COST_MAP`
+  set so litellm does not phone home for its price list.
+- mkdocs `pymdownx.snippets` extension wired up so docs can include
+  files verbatim via `--8<--` syntax — the quickstart docs page now
+  pulls `examples/01_quickstart/main.py` directly, so the example and
+  the docs cannot drift.
+
+### Changed
+- LiteLLM autotrace adapter now registers on `litellm.callbacks` (the
+  unified sync+async registry) in addition to the legacy
+  `success_callback` / `failure_callback`. Falls back gracefully when
+  `callbacks` is absent on older litellm versions.
+- LiteLLM autotrace `_on_success` / `_on_failure` accept either float
+  (Unix timestamp) or `datetime.datetime` for `start_time` / `end_time`.
+  A new `_latency_ms` helper converts the difference uniformly to a
+  float in milliseconds.
+
+### Added (Phase 3, before merge)
 - Tracing instrumentation: `start_trajectory` async context manager,
   `@trace_step` decorator (sync + async via `inspect.iscoroutinefunction`),
   `record_llm_call` / `record_tool_call` recorders, `Sampler` Protocol
