@@ -86,7 +86,9 @@ class MetricResult(BaseModel, frozen=True):
 
 class Metric(Protocol):
     name: str
-    def score(self, trajectory: Trajectory, case: Case) -> MetricResult: ...
+    def score(
+        self, trajectory: Trajectory, steps: list[Step], case: Case
+    ) -> MetricResult: ...
 ```
 
 The `Metric` protocol is sync. Async metrics (judges) arrive in Phase 6
@@ -104,7 +106,10 @@ FinalAnswerMatch(
 )
 ```
 
-- Reads `trajectory.final_output` and compares against `case.expected_answer`.
+- Reads `trajectory.final_answer` (typed `JsonValue`) and compares against
+  `case.expected_answer`. If `final_answer` is not a string, it is rendered
+  with `json.dumps(..., sort_keys=True)` before comparison — strings are
+  used as-is.
 - `normalized_exact` (default): both sides are lowercased, leading/trailing
   whitespace stripped, internal whitespace runs collapsed to a single space.
   Score is `1.0` on equality, `0.0` otherwise. Label is `pass` / `fail`.
@@ -112,8 +117,8 @@ FinalAnswerMatch(
 - Custom callable: returns a float in `[0, 1]`. Label is `pass` if
   `score >= 0.99`, `fail` if `score <= 0.01`, else `partial`.
 - If `case.expected_answer is None` → `MissingReferenceError`.
-- If `trajectory.final_output is None` → `score=0.0`, `label="fail"`,
-  `details={"reason": "no_final_output"}`.
+- If `trajectory.final_answer is None` → `score=0.0`, `label="fail"`,
+  `details={"reason": "no_final_answer"}`.
 
 ### `ToolAccuracy`
 
@@ -125,8 +130,8 @@ ToolAccuracy(
 )
 ```
 
-- Walks the trajectory and collects every step whose payload is a
-  `ToolCallPayload`, in order.
+- Walks the supplied `steps` list and collects every step whose
+  `payload.step_type == "tool_call"`, in their `started_at` order.
 - `set` mode: treats expected and actual as multisets of `name` (or
   `(name, args)` if `match_args=True`, with `args` compared as JSON-canonical
   dicts). If `match_args=True` but a particular `ExpectedTool.args is None`,
@@ -150,7 +155,7 @@ ToolAccuracy(
 StepEfficiency(name: str = "step_efficiency")
 ```
 
-- `actual_steps = len(trajectory.steps)`.
+- `actual_steps = len(steps)` (the supplied list).
 - `score = min(1.0, case.expected_max_steps / max(actual_steps, 1))`.
 - If `case.expected_max_steps is None` → `MissingReferenceError`.
 - Label is `pass` if `actual_steps <= expected_max_steps`, else `partial`
@@ -222,7 +227,9 @@ class Runner:
         on_missing_reference: Literal["skip", "error"] = "skip",
     ) -> None: ...
 
-    def evaluate(self, pairs: Iterable[tuple[Trajectory, Case]]) -> EvalReport: ...
+    def evaluate(
+        self, items: Iterable[tuple[Trajectory, list[Step], Case]]
+    ) -> EvalReport: ...
 ```
 
 - Sync. Pure compute. The Runner does not touch the `Store`; callers pass
