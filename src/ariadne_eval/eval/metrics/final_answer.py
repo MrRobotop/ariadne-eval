@@ -37,7 +37,11 @@ def _label_from_score(score: float) -> Literal["pass", "fail", "partial"]:
 
 
 class FinalAnswerMatch:
-    """Compare ``trajectory.final_answer`` against ``case.expected_answer``."""
+    """Compare ``trajectory.final_answer`` against ``case.expected_answer``.
+
+    Non-string ``final_answer`` values are JSON-serialized (``json.dumps(sort_keys=True)``)
+    before comparison, so ``case.expected_answer`` must be written to match that rendering.
+    """
 
     name: str
 

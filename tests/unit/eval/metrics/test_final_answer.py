@@ -63,9 +63,7 @@ def test_missing_reference_raises() -> None:
 
 
 def test_no_final_answer_is_fail() -> None:
-    traj = make_trajectory(
-        final_answer=None, final_status=TrajectoryStatus.FAILED
-    )
+    traj = make_trajectory(final_answer=None, final_status=TrajectoryStatus.FAILED)
     case = Case(case_id="c", task="t", expected_answer="x")
     r = FinalAnswerMatch().score(traj, [], case)
     assert r.score == 0.0
@@ -75,8 +73,22 @@ def test_no_final_answer_is_fail() -> None:
 
 def test_non_string_final_answer_is_json_serialized() -> None:
     traj = make_trajectory(final_answer={"value": 4})
-    case = Case(
-        case_id="c", task="t", expected_answer='{"value": 4}'
-    )
+    case = Case(case_id="c", task="t", expected_answer='{"value": 4}')
     r = FinalAnswerMatch(comparator="exact").score(traj, [], case)
     assert r.score == 1.0
+
+
+def test_custom_comparator_label_pass() -> None:
+    traj = make_trajectory(final_answer="x")
+    case = Case(case_id="c", task="t", expected_answer="y")
+    r = FinalAnswerMatch(comparator=lambda a, b: 1.0).score(traj, [], case)
+    assert r.score == 1.0
+    assert r.label == "pass"
+
+
+def test_custom_comparator_label_fail() -> None:
+    traj = make_trajectory(final_answer="x")
+    case = Case(case_id="c", task="t", expected_answer="y")
+    r = FinalAnswerMatch(comparator=lambda a, b: 0.0).score(traj, [], case)
+    assert r.score == 0.0
+    assert r.label == "fail"
