@@ -30,7 +30,12 @@ class ExpectedTool(BaseModel):
 
 
 class Case(BaseModel):
-    """Ground-truth reference for a single evaluation example."""
+    """Ground-truth reference for a single evaluation example.
+
+    ``frozen=True`` prevents attribute reassignment; it does not deep-freeze
+    the ``metadata`` dict or ``ExpectedTool.args`` — callers must not mutate
+    those in place.
+    """
 
     model_config = {"frozen": True}
 

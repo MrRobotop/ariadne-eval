@@ -32,6 +32,9 @@ def test_case_full() -> None:
         expected_max_steps=5,
         metadata={"benchmark": "demo"},
     )
+    assert c.expected_answer == "4"
+    assert c.expected_max_steps == 5
+    assert c.expected_tools[0].args == {"q": "x"}
     assert c.expected_tools[1].args is None
     assert c.metadata["benchmark"] == "demo"
 
