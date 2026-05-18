@@ -67,10 +67,27 @@ def test_runner_skip_on_missing_reference() -> None:
         report = runner.evaluate(
             [(traj, [], case_with), (traj, [], case_without)],
         )
-    # Only c1 produced a result
+    # Two input items were presented to the runner …
+    assert report.n_cases == 2
+    # … but only c1 produced a scored result (c2 was skipped due to missing reference)
     assert len(report.results) == 1
     assert report.results[0].case_id == "c1"
+    # aggregate.n reflects only scored cases, not total input items
     assert report.aggregates["final_answer_match"].n == 1
+
+
+def test_runner_error_on_missing_reference_non_first_metric() -> None:
+    """Error path escapes cleanly even when an earlier metric already succeeded."""
+    traj = make_trajectory(final_answer="42")
+    # Case has expected_max_steps so StepEfficiency succeeds, but NO expected_answer
+    # so FinalAnswerMatch raises MissingReferenceError.
+    case = Case(case_id="c", task="t", expected_max_steps=5)
+    runner = Runner(
+        metrics=[StepEfficiency(), FinalAnswerMatch()],
+        on_missing_reference="error",
+    )
+    with pytest.raises(MissingReferenceError):
+        runner.evaluate([(traj, [], case)])
 
 
 def test_runner_error_on_missing_reference() -> None:
