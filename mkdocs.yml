@@ -77,9 +77,10 @@ nav:
   - Quickstart: quickstart.md
   - Concepts:
       - concepts/index.md
-      - Trajectory model: concepts/trajectory.md
+      - Metrics: concepts/metrics.md
       - Storage: concepts/storage.md
       - Tracing: concepts/tracing.md
+      - Trajectory model: concepts/trajectory.md
   - Tutorials:
       - tutorials/index.md
   - Reference:
