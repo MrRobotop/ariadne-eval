@@ -85,4 +85,5 @@ nav:
       - tutorials/index.md
   - Reference:
       - reference/index.md
+      - Eval: reference/eval.md
       - Tracing: reference/tracing.md
