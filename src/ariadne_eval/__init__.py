@@ -25,6 +25,17 @@ from ariadne_eval.core.trajectory import (
     Trajectory,
     UserInputPayload,
 )
+from ariadne_eval.eval.case import Case, ExpectedTool
+from ariadne_eval.eval.errors import (
+    BootstrapInsufficientDataWarning,
+    MissingReferenceError,
+)
+from ariadne_eval.eval.metrics.base import Metric, MetricResult
+from ariadne_eval.eval.metrics.efficiency import StepEfficiency
+from ariadne_eval.eval.metrics.final_answer import FinalAnswerMatch
+from ariadne_eval.eval.metrics.tool_accuracy import ToolAccuracy
+from ariadne_eval.eval.runner import EvalReport, Runner
+from ariadne_eval.eval.stats.bootstrap import BootstrapCI, bootstrap_mean_ci
 from ariadne_eval.storage.base import (
     MetadataTooLargeError,
     Store,
@@ -54,23 +65,35 @@ from ariadne_eval.tracing.sampler import (
 
 __all__ = [
     "AlwaysSampler",
+    "BootstrapCI",
+    "BootstrapInsufficientDataWarning",
+    "Case",
     "ContentBlock",
     "DuckDBStore",
+    "EvalReport",
+    "ExpectedTool",
     "FailMode",
+    "FinalAnswerMatch",
     "InternalPayload",
     "JsonValue",
     "LLMCallPayload",
     "Message",
     "MetadataTooLargeError",
+    "Metric",
+    "MetricResult",
+    "MissingReferenceError",
     "RateSampler",
+    "Runner",
     "Sampler",
     "Step",
+    "StepEfficiency",
     "StepError",
     "StepStatus",
     "Store",
     "StoreError",
     "TaskFilterSampler",
     "TextBlock",
+    "ToolAccuracy",
     "ToolCallPayload",
     "ToolCallRef",
     "Trajectory",
@@ -80,6 +103,7 @@ __all__ = [
     "UnattachedTracingWarning",
     "UserInputPayload",
     "__version__",
+    "bootstrap_mean_ci",
     "current_step",
     "current_trajectory",
     "enable_litellm_autotrace",
