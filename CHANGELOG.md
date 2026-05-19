@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- `ariadne_eval.eval` namespace: `Case`, `ExpectedTool`, `Metric`,
+  `MetricResult`, `FinalAnswerMatch`, `ToolAccuracy`, `StepEfficiency`,
+  `Runner`, `EvalReport`, `bootstrap_mean_ci`, `BootstrapCI`,
+  `MissingReferenceError`, `BootstrapInsufficientDataWarning`. All
+  re-exported from the top-level `ariadne_eval`.
+- `docs/concepts/metrics.md` and `docs/reference/eval.md`.
+- `examples/03_custom_metric/` walkthrough.
 - Reference ReAct agent (`ariadne_eval.examples.react_agent.ReactAgent`)
   with text-parsed ReAct loop, two stub tools (`calculator` via
   AST-whitelisted arithmetic, `search` via dict lookup), and
