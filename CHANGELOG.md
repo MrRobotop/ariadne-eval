@@ -16,6 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   re-exported from the top-level `ariadne_eval`.
 - `docs/concepts/metrics.md` and `docs/reference/eval.md`.
 - `examples/03_custom_metric/` walkthrough.
+
+### Known issues
+
+- `EvalReport.to_jsonl` serializes header floats with Python's `json`
+  defaults, so an aggregate produced from `n=0` (every case skipped for a
+  metric) emits `mean`/`lo`/`hi` as the bare token `NaN` — accepted by
+  Python's `json.loads` but rejected by RFC 8259 consumers (`jq`, browser
+  `JSON.parse`, `serde_json`). Round-trip via `EvalReport.from_jsonl`
+  still works. A coordinated `null↔NaN` serialization rule will land in
+  Phase 5.1 before any 0.1.0 promotion.
 - Reference ReAct agent (`ariadne_eval.examples.react_agent.ReactAgent`)
   with text-parsed ReAct loop, two stub tools (`calculator` via
   AST-whitelisted arithmetic, `search` via dict lookup), and
