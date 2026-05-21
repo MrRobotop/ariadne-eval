@@ -113,6 +113,23 @@ def test_eval_report_jsonl_round_trip(tmp_path: Path) -> None:
     assert loaded == report
 
 
+class _AsyncOnlyMetric:
+    """Async-only metric stub for testing sync-runner rejection."""
+
+    name = "async_only"
+
+    async def ascore(self, trajectory, steps, case):  # type: ignore[no-untyped-def]
+        raise AssertionError("must not be called via sync evaluate")
+
+
+def test_sync_evaluate_rejects_async_only_metric() -> None:
+    runner = Runner(metrics=[_AsyncOnlyMetric()])  # type: ignore[list-item]
+    traj = make_trajectory(final_answer="x")
+    case = Case(case_id="c", task="t", expected_answer="x")
+    with pytest.raises(RuntimeError, match="aevaluate"):
+        runner.evaluate([(traj, [], case)])
+
+
 def test_eval_report_jsonl_handles_nan_aggregates(tmp_path: Path) -> None:
     """NaN floats in BootstrapCI survive a JSONL round-trip via null."""
     # Hand-craft a report whose aggregate has NaN fields (mirrors n=0 case)

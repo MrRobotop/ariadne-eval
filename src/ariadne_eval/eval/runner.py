@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from ariadne_eval.core.trajectory import Step, Trajectory
 from ariadne_eval.eval.case import Case
 from ariadne_eval.eval.errors import MissingReferenceError
-from ariadne_eval.eval.metrics.base import Metric, MetricResult
+from ariadne_eval.eval.metrics.base import AsyncMetric, Metric, MetricResult  # noqa: F401
 from ariadne_eval.eval.stats.bootstrap import BootstrapCI, bootstrap_mean_ci
 
 __all__ = ["EvalReport", "Runner"]
@@ -128,7 +128,17 @@ class Runner:
         self,
         items: Iterable[tuple[Trajectory, list[Step], Case]],
     ) -> EvalReport:
-        """Score every item through all metrics and return an EvalReport."""
+        """Score every item through all metrics and return an EvalReport.
+
+        Sync only — raises ``RuntimeError`` if any metric implements
+        ``ascore`` without a sync ``score``. Use ``aevaluate`` for those.
+        """
+        for metric in self._metrics:
+            if not callable(getattr(metric, "score", None)):
+                raise RuntimeError(
+                    f"Metric {metric.name!r} is async-only; "
+                    "use Runner.aevaluate instead of Runner.evaluate."
+                )
         per_metric: dict[str, list[float]] = {m.name: [] for m in self._metrics}
         results: list[MetricResult] = []
         n_cases = 0
