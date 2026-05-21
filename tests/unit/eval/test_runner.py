@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,7 @@ from ariadne_eval.eval.metrics.efficiency import StepEfficiency
 from ariadne_eval.eval.metrics.final_answer import FinalAnswerMatch
 from ariadne_eval.eval.metrics.tool_accuracy import ToolAccuracy
 from ariadne_eval.eval.runner import EvalReport, Runner
+from ariadne_eval.eval.stats.bootstrap import BootstrapCI
 from tests.unit.eval._factories import make_tool_step, make_trajectory
 
 pytestmark = pytest.mark.fast
@@ -109,3 +111,37 @@ def test_eval_report_jsonl_round_trip(tmp_path: Path) -> None:
     report.to_jsonl(out)
     loaded = EvalReport.from_jsonl(out)
     assert loaded == report
+
+
+def test_eval_report_jsonl_handles_nan_aggregates(tmp_path: Path) -> None:
+    """NaN floats in BootstrapCI survive a JSONL round-trip via null."""
+    # Hand-craft a report whose aggregate has NaN fields (mirrors n=0 case)
+    nan_ci = BootstrapCI(
+        mean=math.nan,
+        lo=math.nan,
+        hi=math.nan,
+        n=0,
+        n_resamples=1000,
+        confidence=0.95,
+    )
+    report = EvalReport(
+        results=(),
+        aggregates={"some_metric": nan_ci},
+        n_cases=0,
+        seed=0,
+    )
+    out = tmp_path / "nan_report.jsonl"
+    report.to_jsonl(out)
+    raw = out.read_text(encoding="utf-8")
+    # MUST be valid RFC-8259 JSON — null, not bare NaN
+    assert "NaN" not in raw
+    assert "null" in raw
+    # Round-trip preserves NaN via null
+    loaded = EvalReport.from_jsonl(out)
+    assert loaded.n_cases == 0
+    ci = loaded.aggregates["some_metric"]
+    assert math.isnan(ci.mean)
+    assert math.isnan(ci.lo)
+    assert math.isnan(ci.hi)
+    assert ci.n == 0
+    assert ci.n_resamples == 1000
