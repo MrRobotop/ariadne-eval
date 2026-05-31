@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from io import StringIO
+from pathlib import Path
 from typing import Literal
 
 import pytest
 
-from ariadne_eval.core.trajectory import Step, Trajectory
+from ariadne_eval.core.trajectory import LLMCallPayload, Step, Trajectory
 from tests.data._load_gold_plans import GoldEntry, iter_gold_plans
+
+_GOLD_PLANS_PATH = Path(__file__).resolve().parents[2] / "data" / "gold_plans.jsonl"
 
 pytestmark = pytest.mark.fast
 
@@ -53,3 +57,32 @@ def test_gold_entry_label_type() -> None:
     e = next(iter_gold_plans(StringIO(_ONE_FIXTURE_JSONL)))
     lbl: Literal["pass", "partial", "fail"] = e.gold_label
     assert lbl in ("pass", "partial", "fail")
+
+
+def test_gold_plans_file_loads_completely() -> None:
+    with _GOLD_PLANS_PATH.open(encoding="utf-8") as f:
+        entries = list(iter_gold_plans(f))
+    assert len(entries) == 51
+
+
+def test_gold_plans_balanced_buckets() -> None:
+    with _GOLD_PLANS_PATH.open(encoding="utf-8") as f:
+        entries = list(iter_gold_plans(f))
+    counts = Counter(e.gold_label for e in entries)
+    assert counts == {"pass": 17, "partial": 17, "fail": 17}
+
+
+def test_gold_plans_unique_trajectory_ids() -> None:
+    with _GOLD_PLANS_PATH.open(encoding="utf-8") as f:
+        entries = list(iter_gold_plans(f))
+    ids = [e.trajectory.id for e in entries]
+    assert len(set(ids)) == len(ids), "trajectory IDs must be unique"
+
+
+def test_gold_plans_have_an_llm_step() -> None:
+    """Every fixture must have at least one LLM step so PlanQuality can score it."""
+    with _GOLD_PLANS_PATH.open(encoding="utf-8") as f:
+        entries = list(iter_gold_plans(f))
+    for e in entries:
+        has_llm = any(isinstance(s.payload, LLMCallPayload) for s in e.steps)
+        assert has_llm, f"entry {e.trajectory.id} has no LLM step"
