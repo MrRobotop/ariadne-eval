@@ -54,3 +54,26 @@ def test_metric_result_label_literal_validated() -> None:
             score=0.0,
             label="bogus",  # type: ignore[arg-type]
         )
+
+
+from ariadne_eval.eval.metrics.base import AsyncMetric  # noqa: E402
+
+
+def test_async_metric_protocol_is_runtime_checkable() -> None:
+    class _Stub:
+        name = "stub"
+
+        async def ascore(self, trajectory, steps, case):  # type: ignore[no-untyped-def]
+            return None  # type: ignore[return-value]
+
+    assert isinstance(_Stub(), AsyncMetric)
+
+
+def test_sync_metric_is_not_async_metric() -> None:
+    class _SyncOnly:
+        name = "sync"
+
+        def score(self, trajectory, steps, case):  # type: ignore[no-untyped-def]
+            return None  # type: ignore[return-value]
+
+    assert not isinstance(_SyncOnly(), AsyncMetric)

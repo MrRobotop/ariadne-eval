@@ -49,6 +49,17 @@ wildcard in this mode (any actual call of the same name matches).
 when actual ≤ budget, otherwise `partial` (going over budget is a smell,
 not a correctness failure).
 
+### Judge-backed metrics (Phase 6+)
+
+`PlanQuality` is the first judge-backed metric. It is **async-only** —
+metrics that call LLMs implement `ascore` instead of `score`. Compose
+async metrics with sync metrics through `Runner.aevaluate`; the sync
+`Runner.evaluate` rejects async-only metrics with a clear error pointing
+at `aevaluate`.
+
+See [Judges](./judges.md) for the verdict shape, calibration policy, and
+how to write your own judge.
+
 ## Confidence intervals
 
 Every aggregate in an `EvalReport` is a `BootstrapCI` produced by

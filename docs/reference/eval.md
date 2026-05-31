@@ -20,7 +20,15 @@
     options:
       show_root_heading: true
 
+::: ariadne_eval.eval.metrics.plan_quality
+    options:
+      show_root_heading: true
+
 ::: ariadne_eval.eval.stats.bootstrap
+    options:
+      show_root_heading: true
+
+::: ariadne_eval.eval.stats.agreement
     options:
       show_root_heading: true
 

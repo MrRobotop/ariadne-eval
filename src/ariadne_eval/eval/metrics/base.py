@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from ariadne_eval.core.trajectory import JsonValue, Step, Trajectory
 from ariadne_eval.eval.case import Case
 
-__all__ = ["Metric", "MetricResult"]
+__all__ = ["AsyncMetric", "Metric", "MetricResult"]
 
 
 class MetricResult(BaseModel):
@@ -34,12 +34,29 @@ class MetricResult(BaseModel):
 class Metric(Protocol):
     """Pure-compute, sync per-trajectory scoring contract.
 
-    Implementations are expected to be deterministic. Async metrics
-    (judges) arrive in Phase 6 behind a separate ``AsyncMetric`` Protocol.
+    Implementations are expected to be deterministic. A metric MAY also
+    implement ``ascore`` (then it satisfies both ``Metric`` and ``AsyncMetric``).
     """
 
     name: str
 
     def score(self, trajectory: Trajectory, steps: list[Step], case: Case) -> MetricResult:
+        """Score a trajectory against a ground-truth case."""
+        ...
+
+
+@runtime_checkable
+class AsyncMetric(Protocol):
+    """Async-only per-trajectory scoring contract.
+
+    Use this for metrics that intentionally do not provide a sync path —
+    typically LLM-backed metrics (judges). ``Runner.aevaluate`` schedules
+    these under a bounded concurrency semaphore; ``Runner.evaluate`` (sync)
+    raises ``RuntimeError`` if it encounters one.
+    """
+
+    name: str
+
+    async def ascore(self, trajectory: Trajectory, steps: list[Step], case: Case) -> MetricResult:
         """Score a trajectory against a ground-truth case."""
         ...
