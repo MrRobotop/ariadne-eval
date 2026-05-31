@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-__all__ = ["BootstrapInsufficientDataWarning", "MissingReferenceError"]
+__all__ = [
+    "BootstrapInsufficientDataWarning",
+    "KappaInsufficientDataWarning",
+    "MissingReferenceError",
+]
 
 
 class MissingReferenceError(ValueError):
@@ -25,4 +29,12 @@ class BootstrapInsufficientDataWarning(UserWarning):
 
     Raised for ``n == 0`` (NaN result) and ``n == 1`` (degenerate CI equal
     to the single value).
+    """
+
+
+class KappaInsufficientDataWarning(UserWarning):
+    """Emitted when ``cohens_kappa`` cannot produce a meaningful kappa.
+
+    Raised for ``n == 0`` (NaN result) and for degenerate single-label
+    distributions where the chance-agreement denominator is zero.
     """

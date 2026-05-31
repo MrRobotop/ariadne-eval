@@ -6,6 +6,7 @@ import pytest
 
 from ariadne_eval.eval.errors import (
     BootstrapInsufficientDataWarning,
+    KappaInsufficientDataWarning,
     MissingReferenceError,
 )
 
@@ -29,3 +30,7 @@ def test_bootstrap_warning_is_user_warning() -> None:
 def test_bootstrap_warning_round_trip() -> None:
     with pytest.warns(BootstrapInsufficientDataWarning, match="n=0"):
         warnings.warn("n=0 not enough", BootstrapInsufficientDataWarning, stacklevel=1)
+
+
+def test_kappa_warning_is_user_warning() -> None:
+    assert issubclass(KappaInsufficientDataWarning, UserWarning)
