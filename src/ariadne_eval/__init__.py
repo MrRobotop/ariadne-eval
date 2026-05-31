@@ -30,11 +30,12 @@ from ariadne_eval.eval.errors import (
     BootstrapInsufficientDataWarning,
     MissingReferenceError,
 )
-from ariadne_eval.eval.metrics.base import Metric, MetricResult
+from ariadne_eval.eval.metrics.base import AsyncMetric, Metric, MetricResult
 from ariadne_eval.eval.metrics.efficiency import StepEfficiency
 from ariadne_eval.eval.metrics.final_answer import FinalAnswerMatch
 from ariadne_eval.eval.metrics.tool_accuracy import ToolAccuracy
 from ariadne_eval.eval.runner import EvalReport, Runner
+from ariadne_eval.eval.stats.agreement import KappaResult, cohens_kappa
 from ariadne_eval.eval.stats.bootstrap import BootstrapCI, bootstrap_mean_ci
 from ariadne_eval.storage.base import (
     MetadataTooLargeError,
@@ -65,6 +66,7 @@ from ariadne_eval.tracing.sampler import (
 
 __all__ = [
     "AlwaysSampler",
+    "AsyncMetric",
     "BootstrapCI",
     "BootstrapInsufficientDataWarning",
     "Case",
@@ -76,6 +78,7 @@ __all__ = [
     "FinalAnswerMatch",
     "InternalPayload",
     "JsonValue",
+    "KappaResult",
     "LLMCallPayload",
     "Message",
     "MetadataTooLargeError",
@@ -104,6 +107,7 @@ __all__ = [
     "UserInputPayload",
     "__version__",
     "bootstrap_mean_ci",
+    "cohens_kappa",
     "current_step",
     "current_trajectory",
     "enable_litellm_autotrace",
