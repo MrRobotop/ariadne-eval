@@ -7,7 +7,7 @@ import math
 import pytest
 
 from ariadne_eval.eval.errors import KappaInsufficientDataWarning
-from ariadne_eval.eval.stats.agreement import KappaResult, cohens_kappa
+from ariadne_eval.eval.stats.agreement import KappaResult, _interpret, cohens_kappa
 
 pytestmark = pytest.mark.fast
 
@@ -63,6 +63,22 @@ def test_single_label_degenerate_all_agree() -> None:
     r = cohens_kappa(["pass", "pass", "pass"], ["pass", "pass", "pass"])
     assert r.kappa == 1.0
     assert r.interpretation == "almost_perfect"
+
+
+def test_interpret_covers_all_bands() -> None:
+    """Landis-Koch boundaries hit each band of the interpretation function."""
+    assert _interpret(-0.1) == "poor"
+    assert _interpret(math.nan) == "poor"
+    assert _interpret(0.0) == "slight"
+    assert _interpret(0.19) == "slight"
+    assert _interpret(0.2) == "fair"
+    assert _interpret(0.39) == "fair"
+    assert _interpret(0.4) == "moderate"
+    assert _interpret(0.59) == "moderate"
+    assert _interpret(0.6) == "substantial"
+    assert _interpret(0.79) == "substantial"
+    assert _interpret(0.8) == "almost_perfect"
+    assert _interpret(1.0) == "almost_perfect"
 
 
 def test_explicit_label_set_constrains_distribution() -> None:

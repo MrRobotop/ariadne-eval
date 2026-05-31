@@ -65,6 +65,15 @@ def _stub_factory_passing(*_args, **_kwargs):  # type: ignore[no-untyped-def]
     )
 
 
+def _stub_factory_raising_parse(*_args, **_kwargs):  # type: ignore[no-untyped-def]
+    from ariadne_eval.eval.judges.base import JudgeParseError
+
+    def _raise(*_a, **_kw):  # type: ignore[no-untyped-def]
+        raise JudgeParseError("synthetic")
+
+    return StubJudge(_raise, name="raises")
+
+
 async def test_build_calibration_set_happy_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -110,3 +119,105 @@ async def test_build_calibration_set_happy_path(
     assert summary[0]["n"] == 3
     assert summary[0]["kappa"] == 1.0
     assert summary[0]["interpretation"] == "almost_perfect"
+
+
+async def test_build_calibration_set_load_failure_recorded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Unknown trajectory_id → per-row 'error' line; summary still emitted."""
+    store_path = tmp_path / "store.duckdb"
+    store = DuckDBStore(path=store_path)
+    await store.close()
+
+    gold = tmp_path / "gold.jsonl"
+    gold.write_text(
+        json.dumps({"trajectory_id": "01J000000000000000000MISSING", "label": "pass"}) + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv(
+        "ARIADNE_TEST_JUDGE_FACTORY",
+        "tests.unit.scripts.test_build_calibration_set._stub_factory_passing",
+    )
+
+    out = tmp_path / "calibration.jsonl"
+    from build_calibration_set import run
+
+    await run(
+        store_path=store_path,
+        gold_labels=gold,
+        judge_model="test/model",
+        out_path=out,
+        concurrency=2,
+    )
+
+    lines = [
+        json.loads(line) for line in out.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+    per = [r for r in lines if r.get("_kind") != "summary"]
+    summary = [r for r in lines if r.get("_kind") == "summary"]
+    assert len(per) == 1
+    assert per[0]["error"].startswith("load: ")
+    assert "judge_label" not in per[0]
+    assert summary[0]["n"] == 0
+    assert summary[0]["kappa"] is None
+
+
+async def test_build_calibration_set_parse_error_recorded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """JudgeParseError → per-row 'error' line (not a hard failure)."""
+    store_path = tmp_path / "store.duckdb"
+    store = DuckDBStore(path=store_path)
+    traj, steps = _build_traj_and_steps("c0", "plan 0")
+    await store.save_trajectory(traj, steps)
+    await store.close()
+
+    gold = tmp_path / "gold.jsonl"
+    gold.write_text(
+        json.dumps({"trajectory_id": traj.id, "label": "pass"}) + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv(
+        "ARIADNE_TEST_JUDGE_FACTORY",
+        "tests.unit.scripts.test_build_calibration_set._stub_factory_raising_parse",
+    )
+
+    out = tmp_path / "calibration.jsonl"
+    from build_calibration_set import run
+
+    await run(
+        store_path=store_path,
+        gold_labels=gold,
+        judge_model="test/model",
+        out_path=out,
+        concurrency=2,
+    )
+
+    lines = [
+        json.loads(line) for line in out.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+    per = [r for r in lines if r.get("_kind") != "summary"]
+    assert per[0]["error"].startswith("parse: ")
+
+
+def test_resolve_test_factory_raises_on_non_dotted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An ARIADNE_TEST_JUDGE_FACTORY without a module path is rejected."""
+    from build_calibration_set import _resolve_test_factory
+
+    monkeypatch.setenv("ARIADNE_TEST_JUDGE_FACTORY", "no_dots_here")
+    with pytest.raises(ValueError, match="dotted path"):
+        _resolve_test_factory()
+
+
+def test_resolve_test_factory_returns_none_when_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without the env var, no factory is resolved (production path)."""
+    from build_calibration_set import _resolve_test_factory
+
+    monkeypatch.delenv("ARIADNE_TEST_JUDGE_FACTORY", raising=False)
+    assert _resolve_test_factory() is None
