@@ -1,0 +1,47 @@
+name: Feature request
+description: Suggest a new capability or improvement.
+title: "feat: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please check the
+        [public roadmap in CLAUDE.md](https://github.com/MrRobotop/ariadne-eval/blob/main/CLAUDE.md)
+        and the [open phase specs in `docs/superpowers/`](https://github.com/MrRobotop/ariadne-eval/tree/main/docs/superpowers) —
+        the request may already be planned.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem are you trying to solve? Concrete example preferred.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Sketch the API or behavior you'd want. Code snippets welcome.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds exist today, and why don't they suffice?
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope estimate
+      options:
+        - "Small (fits in one phase)"
+        - "Medium (warrants its own phase)"
+        - "Large (multi-phase / breaking API change)"
+        - "Not sure"
+    validations:
+      required: true
