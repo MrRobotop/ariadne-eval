@@ -101,6 +101,7 @@ async def test_build_calibration_set_happy_path(
     from build_calibration_set import run
 
     await run(
+        source="store",
         store_path=store_path,
         gold_labels=gold,
         judge_model="test/model",
@@ -144,6 +145,7 @@ async def test_build_calibration_set_load_failure_recorded(
     from build_calibration_set import run
 
     await run(
+        source="store",
         store_path=store_path,
         gold_labels=gold,
         judge_model="test/model",
@@ -188,6 +190,7 @@ async def test_build_calibration_set_parse_error_recorded(
     from build_calibration_set import run
 
     await run(
+        source="store",
         store_path=store_path,
         gold_labels=gold,
         judge_model="test/model",
@@ -221,3 +224,107 @@ def test_resolve_test_factory_returns_none_when_unset(
 
     monkeypatch.delenv("ARIADNE_TEST_JUDGE_FACTORY", raising=False)
     assert _resolve_test_factory() is None
+
+
+async def test_run_with_source_synth_uses_fixtures_directly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--source synth loads gold_plans.jsonl directly; no DuckDB needed."""
+    import json as _json
+    from datetime import UTC, datetime, timedelta
+
+    from ariadne_eval.core.ids import new_id
+
+    # Build a 1-line gold-plans JSONL inline (the production file has 51)
+    traj_id = new_id()
+    step_id = new_id()
+    started = datetime(2026, 5, 20, 12, 0, 0, tzinfo=UTC)
+    entry = {
+        "trajectory": {
+            "id": traj_id,
+            "task": "compute 1+2",
+            "agent_name": "synth",
+            "agent_version": "0.0.0",
+            "model_id": "synth/agent",
+            "started_at": started.isoformat().replace("+00:00", "Z"),
+            "finished_at": (started + timedelta(seconds=1)).isoformat().replace("+00:00", "Z"),
+            "final_status": "succeeded",
+            "final_answer": "3",
+        },
+        "steps": [
+            {
+                "id": step_id,
+                "trajectory_id": traj_id,
+                "parent_step_id": None,
+                "name": "llm",
+                "started_at": started.isoformat().replace("+00:00", "Z"),
+                "finished_at": (started + timedelta(milliseconds=10))
+                .isoformat()
+                .replace("+00:00", "Z"),
+                "status": "succeeded",
+                "payload": {
+                    "step_type": "llm_call",
+                    "model_id": "synth/agent",
+                    "prompt_messages": [{"role": "user", "content": "hi"}],
+                    "completion": "Step 1: use calculator(1+2).",
+                    "input_tokens": 1,
+                    "output_tokens": 1,
+                    "latency_ms": 1.0,
+                    "cost_usd": 0.0,
+                },
+            }
+        ],
+        "gold_label": "pass",
+    }
+    gold = tmp_path / "gold_plans.jsonl"
+    gold.write_text(_json.dumps(entry) + "\n", encoding="utf-8")
+
+    monkeypatch.setenv(
+        "ARIADNE_TEST_JUDGE_FACTORY",
+        "tests.unit.scripts.test_build_calibration_set._stub_factory_passing",
+    )
+
+    out = tmp_path / "calibration.jsonl"
+    from build_calibration_set import run
+
+    await run(
+        source="synth",
+        store_path=None,
+        gold_labels=gold,
+        judge_model="test/model",
+        out_path=out,
+        concurrency=2,
+    )
+
+    lines = [
+        _json.loads(line) for line in out.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+    per = [r for r in lines if r.get("_kind") not in ("summary", "confusion", "meta")]
+    assert len(per) == 1
+    assert per[0]["trajectory_id"] == traj_id
+    assert per[0]["gold_label"] == "pass"
+    assert per[0]["judge_label"] == "pass"
+
+
+async def test_run_with_source_store_and_no_store_path_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Programmatic callers: source='store' + store_path=None raises ValueError."""
+    monkeypatch.setenv(
+        "ARIADNE_TEST_JUDGE_FACTORY",
+        "tests.unit.scripts.test_build_calibration_set._stub_factory_passing",
+    )
+    gold = tmp_path / "empty.jsonl"
+    gold.write_text("", encoding="utf-8")
+    out = tmp_path / "calibration.jsonl"
+    from build_calibration_set import run
+
+    with pytest.raises(ValueError, match="--store"):
+        await run(
+            source="store",
+            store_path=None,
+            gold_labels=gold,
+            judge_model="test/model",
+            out_path=out,
+            concurrency=1,
+        )

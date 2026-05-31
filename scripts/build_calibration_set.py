@@ -19,10 +19,11 @@ import importlib
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import click
 
+from ariadne_eval.core.trajectory import Step, Trajectory
 from ariadne_eval.eval.judges.base import Judge, JudgeParseError
 from ariadne_eval.eval.judges.trajectory_judge import TrajectoryJudge
 from ariadne_eval.eval.stats.agreement import cohens_kappa
@@ -50,7 +51,8 @@ def _make_judge(model: str) -> Judge:
 
 async def run(
     *,
-    store_path: Path,
+    source: Literal["synth", "store"] = "store",
+    store_path: Path | None,
     gold_labels: Path,
     judge_model: str,
     out_path: Path,
@@ -58,30 +60,54 @@ async def run(
 ) -> None:
     """Load each labeled trajectory, judge it, write per-line + summary report."""
     judge = _make_judge(judge_model)
-    store = DuckDBStore(path=store_path)
 
-    entries: list[dict[str, str]] = []
-    for line in gold_labels.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            entries.append(json.loads(line))
+    loaded: list[tuple[dict[str, str], Trajectory | None, list[Step] | None, str | None]] = []
 
-    loaded: list[tuple[dict[str, str], object, object, str | None]] = []
-    for entry in entries:
-        traj_id = entry["trajectory_id"]
-        try:
-            traj, steps = await store.get_trajectory(traj_id)
-        except Exception as exc:
-            loaded.append((entry, None, None, f"load: {exc}"))
-            continue
-        loaded.append((entry, traj, steps, None))
-    await store.close()
+    if source == "synth":
+        # --source synth: load directly from gold_plans.jsonl. No DuckDB needed.
+        import sys
+
+        # Make tests/data importable. scripts/ sits at repo-root/scripts;
+        # tests/ sits at repo-root/tests. Resolve from __file__.
+        _repo_root = Path(__file__).resolve().parents[1]
+        if str(_repo_root) not in sys.path:
+            sys.path.insert(0, str(_repo_root))
+        from tests.data._load_gold_plans import iter_gold_plans
+
+        with gold_labels.open(encoding="utf-8") as f:
+            for gold_entry in iter_gold_plans(f):
+                # Match the gold-labels JSONL key ("label") that the store path consumes;
+                # _judge_one rewrites it to "gold_label" in the per-row output.
+                entry_dict = {
+                    "trajectory_id": gold_entry.trajectory.id,
+                    "label": gold_entry.gold_label,
+                }
+                loaded.append((entry_dict, gold_entry.trajectory, gold_entry.steps, None))
+    else:
+        # --source store: production path against a user's DuckDB store.
+        if store_path is None:
+            raise ValueError("--source store requires --store / store_path to be set")
+        store = DuckDBStore(path=store_path)
+        entries: list[dict[str, str]] = []
+        for line in gold_labels.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                entries.append(json.loads(line))
+        for entry in entries:
+            traj_id = entry["trajectory_id"]
+            try:
+                traj, steps = await store.get_trajectory(traj_id)
+            except Exception as exc:
+                loaded.append((entry, None, None, f"load: {exc}"))
+                continue
+            loaded.append((entry, traj, steps, None))
+        await store.close()
 
     sem = asyncio.Semaphore(concurrency)
 
     async def _judge_one(
         entry: dict[str, str],
-        traj: object,
-        steps: object,
+        traj: Trajectory | None,
+        steps: list[Step] | None,
         load_error: str | None,
     ) -> dict[str, object]:
         traj_id = entry["trajectory_id"]
@@ -145,10 +171,18 @@ async def run(
 
 @click.command()
 @click.option(
+    "--source",
+    type=click.Choice(["synth", "store"], case_sensitive=False),
+    default="store",
+    show_default=True,
+    help="Where to load trajectories from: 'synth' for tests/data/gold_plans.jsonl, "
+    "'store' for a user's DuckDB store.",
+)
+@click.option(
     "--store",
     "store_path",
     type=click.Path(path_type=Path, exists=True),
-    required=True,
+    required=False,
     help="Path to the DuckDB store.",
 )
 @click.option(
@@ -177,15 +211,19 @@ async def run(
     help="Max in-flight judge calls.",
 )
 def main(
-    store_path: Path,
+    source: str,
+    store_path: Path | None,
     gold_labels: Path,
     judge_model: str,
     out_path: Path,
     concurrency: int,
 ) -> None:
     """Run the calibration harness."""
+    if source == "store" and store_path is None:
+        raise click.UsageError("--source store requires --store to be set.")
     asyncio.run(
         run(
+            source=source,  # type: ignore[arg-type]
             store_path=store_path,
             gold_labels=gold_labels,
             judge_model=judge_model,
