@@ -117,7 +117,7 @@ LangGraph / CrewAI integration walkthroughs land alongside Phase 7.
 | 5 | Programmatic metrics + bootstrap CIs (`FinalAnswerMatch`, `ToolAccuracy`, `StepEfficiency`) | v0.0.6-alpha | shipped |
 | 6 | Async `Runner.aevaluate`, `Judge` Protocol, `TrajectoryJudge`, `PlanQuality`, `cohens_kappa` | v0.0.7-alpha | shipped (judges namespace-private pending 6.1) |
 | 6.1 | 51-trajectory hand-crafted gold set, kappa table, judge top-level promotion | v0.0.8-alpha | **in progress** |
-| 7 | tau-bench runner + headline benchmark table | v0.0.9-alpha | planned |
+| 7 | tau-bench Protocol + adapter + runner + `ariadne bench run` CLI | v0.0.9-alpha | shipped (library only; bundle pending 7.1) |
 | 8 | CLI polish (`ariadne ui`, `ariadne eval`, `ariadne bench`, `ariadne export`) | v0.0.10-alpha | planned |
 | 9 | Streamlit replay UI (trajectory tree, diff, compare, calibration page) | v0.0.11-alpha | planned |
 | 10 | CUSUM / ADWIN drift detection with calibrated false-positive rates | v0.0.12-alpha | planned |
@@ -126,6 +126,14 @@ LangGraph / CrewAI integration walkthroughs land alongside Phase 7.
 Each phase has a published design spec in `docs/superpowers/specs/` and an
 implementation plan in `docs/superpowers/plans/` — the specs are part of the
 portfolio, not just internal notes.
+
+---
+
+## Headline benchmark
+
+Phase 7 (v0.0.9-alpha) ships the benchmark stack: tau-agnostic `Benchmark` Protocol, `TauBenchAdapter` (gated behind the `[tau-bench]` extra), `BenchmarkRunner`, `ariadne bench run` CLI, and the canonical config at [`configs/benchmarks/tau_retail_baseline.yaml`](./configs/benchmarks/tau_retail_baseline.yaml).
+
+The headline τ-retail run is deferred to Phase 7.1 — the simulator-LLM token costs exceed the maintainer's current API tier ceilings. The library code is feature-complete and fully tested; only the bundle is pending. See [Benchmarks](./docs/concepts/benchmarks.md) for the methodology and reproducing instructions.
 
 ---
 
