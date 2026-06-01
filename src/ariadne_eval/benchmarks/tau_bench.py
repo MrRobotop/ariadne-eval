@@ -293,12 +293,16 @@ class TauBenchAdapter:
         """Return tau-bench's task list as ``BenchmarkTask`` records."""
         self._last_split = split
         envs = _import_tau_bench_envs()
+        # Always pass task_index=0 to dodge tau-bench's off-by-one bug:
+        # base.py uses ``random.randint(0, len(tasks))`` (inclusive on both
+        # ends) when task_index is None, which can index past the list.
         env = envs.get_env(
             self._env_name,
             user_strategy=self._user_strategy,
             user_model=self._user_model,
             user_provider=self._user_model.split("/", 1)[0],
             task_split=split,
+            task_index=0,
         )
         raw_tasks: list[Any] = list(env.tasks)
         if limit is not None:
@@ -334,12 +338,15 @@ class TauBenchAdapter:
         _ = seed  # consume the parameter without forwarding
 
         envs = _import_tau_bench_envs()
+        # Pass task_index explicitly to dodge tau-bench's off-by-one bug;
+        # we'll override per-task via agent.solve(task_index=...) anyway.
         env = envs.get_env(
             self._env_name,
             user_strategy=self._user_strategy,
             user_model=self._user_model,
             user_provider=self._user_model.split("/", 1)[0],
             task_split=self._last_split,
+            task_index=task.task_index,
         )
 
         agent = _build_tau_bench_agent(
