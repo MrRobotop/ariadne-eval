@@ -138,10 +138,36 @@ class BenchmarkRunner:
                             traj, steps = await self._store.get_trajectory(run_result.trajectory_id)
                         break
                     except Exception as exc:
-                        if not is_transient(exc):
-                            raise
-                        last_transient = exc
-                        await asyncio.sleep(TRANSIENT_BACKOFF_BASE * (2**attempt))
+                        if is_transient(exc):
+                            last_transient = exc
+                            await asyncio.sleep(TRANSIENT_BACKOFF_BASE * (2**attempt))
+                            continue
+                        # Non-transient provider errors (e.g. BadRequestError when a
+                        # model emits malformed tool calls) are recorded per-cell so
+                        # the benchmark survives. Programmer errors (KeyError,
+                        # AttributeError, etc.) still re-raise.
+                        if exc.__class__.__module__.startswith(("litellm", "openai", "anthropic")):
+                            return CellResult(
+                                task=task,
+                                model=model,
+                                run_result=BenchmarkRunResult(
+                                    trajectory_id="",
+                                    success=False,
+                                    raw_score=0.0,
+                                    error=f"{type(exc).__name__}: {exc}"[:500],
+                                ),
+                                trajectory=Trajectory(
+                                    id="00000000000000000000000000",
+                                    task=task.instruction,
+                                    agent_name="failed",
+                                    agent_version="0",
+                                    model_id=f"{model.provider}/{model.model}",
+                                    started_at=datetime.now(UTC),
+                                    final_status=TrajectoryStatus.FAILED,
+                                ),
+                                steps=[],
+                            )
+                        raise
                 else:
                     # All retries exhausted
                     return CellResult(
