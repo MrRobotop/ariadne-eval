@@ -1,6 +1,6 @@
 [project]
 name = "ariadne-eval"
-version = "0.0.8-alpha"
+version = "0.0.9-alpha"
 description = "Trajectory-level observability and evaluation for LLM agents."
 readme = "README.md"
 license = { text = "Apache-2.0" }

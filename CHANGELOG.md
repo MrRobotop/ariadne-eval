@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Phase 7 ships the tau-bench benchmark stack as library code: a
+  tau-agnostic `Benchmark` Protocol, `BenchmarkTask`,
+  `BenchmarkRunResult`, `BenchmarkConfig` (YAML), `BenchmarkRunner`,
+  `BenchmarkReport`. New optional extra `[tau-bench]` pins Sierra's
+  τ-bench at commit `59a200c6d575d595120f1cb70fea53cef0632f6b`. New
+  CLI subcommand `ariadne bench run` with `--dry-run` / `--limit` /
+  `--models` / `--resume`.
+- `TauBenchAdapter` (gated behind the `[tau-bench]` extra) wraps
+  Sierra's τ-bench retail/airline domains. Converts
+  τ-bench's `EnvRunResult` / `SolveResult` shape to the ariadne
+  `Trajectory` schema via `_convert_tau_traj` so downstream metrics
+  (`StepEfficiency`, `PlanQuality`) and the judge run unchanged over
+  benchmark-sourced trajectories.
+- `_transient` retry primitives extracted from Phase 6.1's
+  calibration script into `src/ariadne_eval/_transient.py`; both the
+  calibration script and the new benchmark runner import from it.
+- `BenchmarkRunner` records provider 4xx errors per-cell instead of
+  killing the run, retries transient provider errors with bounded
+  exponential backoff, and writes a result bundle with sorted-keys +
+  `allow_nan=False` JSON (RFC-8259 valid). The κ = 0.32 (fair) judge
+  calibration note travels in `summary.json` next to every
+  `plan_quality` aggregate.
+- `configs/benchmarks/tau_retail_baseline.yaml` is the canonical run
+  config (2 agent models × 50 retail tasks, Sonnet judge, Groq
+  user-simulator).
+- `docs/concepts/benchmarks.md` documents the benchmark stack, the
+  bundle layout, and the API-tier constraint that defers the headline
+  numbers to Phase 7.1.
+- Version bumped to `0.0.9-alpha`.
+
+### Deferred
+
+- The canonical τ-retail headline bundle
+  (`docs/benchmarks/v0.0.9-alpha-tau-retail-50/`) is deferred to
+  Phase 7.1 — the maintainer's current API tiers don't support
+  τ-bench's user simulator at 50-task scale (Anthropic Tier 1 caps a
+  single input request at 50,000 tokens; Groq free tier caps daily
+  tokens-per-model at 100,000). The library is feature-complete and
+  fully tested; only the bundle awaits API access.
+
 ### Fixed
 
 - `EvalReport.to_jsonl` now serializes non-finite `BootstrapCI` floats as
