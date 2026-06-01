@@ -30,9 +30,17 @@ from ariadne_eval.eval.errors import (
     BootstrapInsufficientDataWarning,
     MissingReferenceError,
 )
+from ariadne_eval.eval.judges import (
+    Judge,
+    JudgeParseError,
+    JudgeVerdict,
+    StubJudge,
+    TrajectoryJudge,
+)
 from ariadne_eval.eval.metrics.base import AsyncMetric, Metric, MetricResult
 from ariadne_eval.eval.metrics.efficiency import StepEfficiency
 from ariadne_eval.eval.metrics.final_answer import FinalAnswerMatch
+from ariadne_eval.eval.metrics.plan_quality import PlanQuality
 from ariadne_eval.eval.metrics.tool_accuracy import ToolAccuracy
 from ariadne_eval.eval.runner import EvalReport, Runner
 from ariadne_eval.eval.stats.agreement import KappaResult, cohens_kappa
@@ -78,6 +86,9 @@ __all__ = [
     "FinalAnswerMatch",
     "InternalPayload",
     "JsonValue",
+    "Judge",
+    "JudgeParseError",
+    "JudgeVerdict",
     "KappaResult",
     "LLMCallPayload",
     "Message",
@@ -85,6 +96,7 @@ __all__ = [
     "Metric",
     "MetricResult",
     "MissingReferenceError",
+    "PlanQuality",
     "RateSampler",
     "Runner",
     "Sampler",
@@ -94,6 +106,7 @@ __all__ = [
     "StepStatus",
     "Store",
     "StoreError",
+    "StubJudge",
     "TaskFilterSampler",
     "TextBlock",
     "ToolAccuracy",
@@ -101,6 +114,7 @@ __all__ = [
     "ToolCallRef",
     "Trajectory",
     "TrajectoryHandle",
+    "TrajectoryJudge",
     "TrajectoryNotFoundError",
     "TrajectoryStatus",
     "UnattachedTracingWarning",

@@ -10,12 +10,11 @@ LLM-as-judge evaluation enters the pipeline.
 
 Per Hard Rule #5 in `CLAUDE.md`: the project does not ship LLM-as-judge
 symbols on the top-level public API until calibration data exists.
-Phase 6 publishes the judge code itself, the calibration harness, and
-Cohen's kappa — but `Judge`, `JudgeVerdict`, `TrajectoryJudge`, and
-`PlanQuality` are importable only from `ariadne_eval.eval.judges` (and
-the `PlanQuality` metric from `ariadne_eval.eval`). Phase 6.1 will
-publish a hand-labeled ≥50-example gold set and the resulting kappa
-table, at which point these symbols move to the top-level `__all__`.
+Phase 6.1 ships the calibration evidence: see [Calibration](./calibration.md) for the
+κ = 0.32 (fair) maintainer-vs-judge agreement number, the 3×3 confusion matrix, and
+per-label precision/recall against the 51-fixture synthetic gold set. As of v0.0.8-alpha,
+`Judge`, `JudgeVerdict`, `JudgeParseError`, `TrajectoryJudge`, `StubJudge`, and
+`PlanQuality` are now top-level public (`from ariadne_eval import TrajectoryJudge`).
 
 ## The verdict shape
 

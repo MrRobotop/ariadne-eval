@@ -173,7 +173,7 @@ wheels = [
 
 [[package]]
 name = "ariadne-eval"
-version = "0.0.1"
+version = "0.0.8a0"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },
