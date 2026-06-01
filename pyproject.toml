@@ -44,6 +44,7 @@ dependencies = [
     "scipy>=1.11",
     "numpy>=1.26",
     "statsmodels>=0.14",
+    "pyyaml>=6.0",
 ]
 
 [project.urls]
@@ -79,6 +80,7 @@ dev = [
     "mypy>=1.10",
     "pre-commit>=3.7",
     "types-requests",
+    "types-pyyaml",
 ]
 all = [
     "ariadne-eval[langgraph,openai-assistants,docs,dev]",
