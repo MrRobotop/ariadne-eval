@@ -12,7 +12,7 @@ For tests, ``ARIADNE_TEST_JUDGE_FACTORY`` env var may point at a
 dotted-path callable that returns a Judge (used in place of TrajectoryJudge).
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import asyncio
 import importlib
@@ -23,29 +23,16 @@ from typing import Any, Literal
 
 import click
 
+from ariadne_eval._transient import (
+    MAX_TRANSIENT_RETRIES as _MAX_TRANSIENT_RETRIES,
+    TRANSIENT_BACKOFF_BASE as _TRANSIENT_BACKOFF_BASE,
+    is_transient as _is_transient,
+)
 from ariadne_eval.core.trajectory import Step, Trajectory
 from ariadne_eval.eval.judges.base import Judge, JudgeParseError
 from ariadne_eval.eval.judges.trajectory_judge import TrajectoryJudge
 from ariadne_eval.eval.stats.agreement import cohens_kappa
 from ariadne_eval.storage.duckdb_store import DuckDBStore
-
-# Transient-error retry policy. Anthropic and other providers occasionally
-# return HTTP 5xx / rate-limit / connection errors on otherwise-valid calls.
-# Bounded exponential backoff handles those without polluting the report.
-_MAX_TRANSIENT_RETRIES = 4
-_TRANSIENT_BACKOFF_BASE = 2.0  # seconds; doubles each attempt (2, 4, 8, 16)
-_TRANSIENT_EXC_NAMES = (
-    "InternalServerError",
-    "RateLimitError",
-    "APIConnectionError",
-    "APITimeoutError",
-    "ServiceUnavailableError",
-)
-
-
-def _is_transient(exc: Exception) -> bool:
-    """Identify provider-side transient errors by class name (provider-portable)."""
-    return type(exc).__name__ in _TRANSIENT_EXC_NAMES
 
 
 def _resolve_test_factory() -> Any | None:

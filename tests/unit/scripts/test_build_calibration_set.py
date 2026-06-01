@@ -400,12 +400,12 @@ def test_is_transient_recognises_listed_names() -> None:
 
 
 def test_is_transient_all_recognised_names() -> None:
-    """Every name in _TRANSIENT_EXC_NAMES is matched by _is_transient."""
-    from build_calibration_set import _TRANSIENT_EXC_NAMES, _is_transient
+    """Every name in TRANSIENT_EXC_NAMES is matched by is_transient."""
+    from ariadne_eval._transient import TRANSIENT_EXC_NAMES, is_transient
 
-    for name in _TRANSIENT_EXC_NAMES:
+    for name in TRANSIENT_EXC_NAMES:
         exc_cls = type(name, (Exception,), {})
-        assert _is_transient(exc_cls()) is True
+        assert is_transient(exc_cls()) is True
 
 
 def test_main_cli_usage_error_on_store_without_store_path(
