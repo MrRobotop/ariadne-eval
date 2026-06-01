@@ -121,3 +121,16 @@ def test_load_rejects_malformed_yaml(tmp_path: Path) -> None:
     p.write_text("benchmark:\n  kind: tau-bench\nmodels: [\n", encoding="utf-8")
     with pytest.raises(ValueError, match="failed to parse YAML"):
         load_benchmark_config(p)
+
+
+def test_canonical_tau_retail_baseline_loads() -> None:
+    """The headline-run config must be valid by Pydantic."""
+    repo = Path(__file__).resolve().parents[3]
+    path = repo / "configs" / "benchmarks" / "tau_retail_baseline.yaml"
+    cfg = load_benchmark_config(path)
+    assert cfg.benchmark.env == "retail"
+    assert len(cfg.models) == 2
+    assert cfg.tasks.limit == 50
+    assert cfg.tasks.seed == 42
+    assert cfg.judge.model == "anthropic/claude-sonnet-4-6"
+    assert cfg.benchmark.user_model == "groq/llama-3.3-70b-versatile"

@@ -82,6 +82,12 @@ dev = [
     "types-requests",
     "types-pyyaml",
 ]
+tau-bench = [
+    "tau-bench @ git+https://github.com/sierra-research/tau-bench@59a200c6d575d595120f1cb70fea53cef0632f6b",
+]
+bench = [
+    "ariadne-eval[tau-bench]",
+]
 all = [
     "ariadne-eval[langgraph,openai-assistants,docs,dev]",
 ]
@@ -92,6 +98,9 @@ ariadne = "ariadne_eval.cli.main:cli"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ariadne_eval"]

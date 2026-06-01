@@ -1,0 +1,47 @@
+# Phase 7 headline benchmark: tau-retail × 2 models × 50 tasks.
+# Anthropic budget cap $5 → Sonnet is dropped from the agent lineup;
+# the simulated user runs on Groq (unlimited).
+#
+# Estimated Anthropic spend:
+#   Haiku agent on 50 tasks    : ~$2.00
+#   Sonnet judge on 100 traj   : ~$1.00
+#   Anthropic total            : ~$3.00
+#
+# Groq spend (free under maintainer's account):
+#   Llama 3.3 70B agent on 50 tasks
+#   Llama 3.3 70B simulated user across 100 cells
+benchmark:
+  kind: tau-bench
+  env: retail
+  task_split: test
+  user_model: groq/llama-3.3-70b-versatile
+  user_strategy: llm
+  agent_kind: tool-calling
+
+models:
+  - model: anthropic/claude-haiku-4-5-20251001
+    provider: anthropic
+  - model: groq/llama-3.3-70b-versatile
+    provider: groq
+
+tasks:
+  limit: 50
+  seed: 42
+
+concurrency: 4
+
+bootstrap:
+  n_resamples: 1000
+  confidence: 0.95
+
+metrics:
+  - step_efficiency
+  - plan_quality
+
+judge:
+  model: anthropic/claude-sonnet-4-6
+  temperature: 0.0
+
+output:
+  bundle_dir: docs/benchmarks/v0.0.9-alpha-tau-retail-50
+  store_path: ~/.ariadne/bench-store.duckdb
