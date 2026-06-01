@@ -383,3 +383,38 @@ def test_confusion_block_with_empty_pairs_is_safe() -> None:
         "matrix": [],
         "per_label": {},
     }
+
+
+def test_meta_block_shape_and_prompt_hashes() -> None:
+    """The meta block carries judge config + prompt hashes + ariadne version."""
+    import hashlib
+
+    from build_calibration_set import _build_meta_block
+
+    from ariadne_eval.eval.judges.prompts import (
+        PLAN_QUALITY_SYSTEM,
+        PLAN_QUALITY_USER_TEMPLATE,
+    )
+
+    block = _build_meta_block(
+        judge_model="anthropic/claude-sonnet-4-6",
+        temperature=0.0,
+        run_date="2026-05-31",
+        n_gold=51,
+    )
+    assert block["_kind"] == "meta"
+    assert block["judge_model"] == "anthropic/claude-sonnet-4-6"
+    assert block["temperature"] == 0.0
+    assert block["run_date"] == "2026-05-31"
+    assert block["n_gold"] == 51
+    assert (
+        block["system_prompt_sha256"]
+        == hashlib.sha256(PLAN_QUALITY_SYSTEM.encode("utf-8")).hexdigest()
+    )
+    assert (
+        block["user_template_sha256"]
+        == hashlib.sha256(PLAN_QUALITY_USER_TEMPLATE.encode("utf-8")).hexdigest()
+    )
+    from ariadne_eval import __version__
+
+    assert block["ariadne_version"] == __version__

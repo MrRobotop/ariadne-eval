@@ -86,6 +86,42 @@ def _build_confusion_block(
     }
 
 
+def _build_meta_block(
+    *,
+    judge_model: str,
+    temperature: float,
+    run_date: str,
+    n_gold: int,
+) -> dict[str, object]:
+    """Build the ``_kind: "meta"`` JSONL block.
+
+    Carries the judge model + temperature for reproducibility,
+    sha256 digests of the two prompt constants so future re-runs can
+    detect silent prompt drift, the run date, the ariadne version, and
+    the total gold-set size.
+    """
+    import hashlib
+
+    from ariadne_eval import __version__
+    from ariadne_eval.eval.judges.prompts import (
+        PLAN_QUALITY_SYSTEM,
+        PLAN_QUALITY_USER_TEMPLATE,
+    )
+
+    return {
+        "_kind": "meta",
+        "judge_model": judge_model,
+        "temperature": temperature,
+        "system_prompt_sha256": hashlib.sha256(PLAN_QUALITY_SYSTEM.encode("utf-8")).hexdigest(),
+        "user_template_sha256": hashlib.sha256(
+            PLAN_QUALITY_USER_TEMPLATE.encode("utf-8")
+        ).hexdigest(),
+        "run_date": run_date,
+        "ariadne_version": __version__,
+        "n_gold": n_gold,
+    }
+
+
 def _make_judge(model: str) -> Judge:
     factory = _resolve_test_factory()
     if factory is not None:
@@ -101,8 +137,15 @@ async def run(
     judge_model: str,
     out_path: Path,
     concurrency: int,
+    temperature: float = 0.0,
+    run_date: str | None = None,
 ) -> None:
     """Load each labeled trajectory, judge it, write per-line + summary report."""
+    from datetime import UTC, datetime
+
+    if run_date is None:
+        run_date = datetime.now(UTC).strftime("%Y-%m-%d")
+
     judge = _make_judge(judge_model)
 
     loaded: list[tuple[dict[str, str], Trajectory | None, list[Step] | None, str | None]] = []
@@ -146,6 +189,7 @@ async def run(
             loaded.append((entry, traj, steps, None))
         await store.close()
 
+    n_gold = len(loaded)
     sem = asyncio.Semaphore(concurrency)
 
     async def _judge_one(
@@ -205,7 +249,17 @@ async def run(
             "label_set": [],
         }
 
+    # NOTE: temperature is recorded in meta for the run's audit trail; it
+    # is NOT forwarded to the judge yet. TrajectoryJudge uses its own
+    # default (0.0). Thread it through _make_judge() if non-default
+    # temperatures (e.g. for ensemble calibration) become a real use case.
     confusion_block = _build_confusion_block(judged_pairs)
+    meta_block = _build_meta_block(
+        judge_model=judge_model,
+        temperature=temperature,
+        run_date=run_date,
+        n_gold=n_gold,
+    )
 
     with out_path.open("w", encoding="utf-8") as f:
         for row in rows:
@@ -214,6 +268,8 @@ async def run(
         f.write(json.dumps(summary, default=str))
         f.write("\n")
         f.write(json.dumps(confusion_block, default=str))
+        f.write("\n")
+        f.write(json.dumps(meta_block, default=str))
         f.write("\n")
 
 
