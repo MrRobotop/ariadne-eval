@@ -29,6 +29,24 @@ from ariadne_eval.eval.judges.trajectory_judge import TrajectoryJudge
 from ariadne_eval.eval.stats.agreement import cohens_kappa
 from ariadne_eval.storage.duckdb_store import DuckDBStore
 
+# Transient-error retry policy. Anthropic and other providers occasionally
+# return HTTP 5xx / rate-limit / connection errors on otherwise-valid calls.
+# Bounded exponential backoff handles those without polluting the report.
+_MAX_TRANSIENT_RETRIES = 4
+_TRANSIENT_BACKOFF_BASE = 2.0  # seconds; doubles each attempt (2, 4, 8, 16)
+_TRANSIENT_EXC_NAMES = (
+    "InternalServerError",
+    "RateLimitError",
+    "APIConnectionError",
+    "APITimeoutError",
+    "ServiceUnavailableError",
+)
+
+
+def _is_transient(exc: Exception) -> bool:
+    """Identify provider-side transient errors by class name (provider-portable)."""
+    return type(exc).__name__ in _TRANSIENT_EXC_NAMES
+
 
 def _resolve_test_factory() -> Any | None:
     """If ARIADNE_TEST_JUDGE_FACTORY is set, import and return the callable."""
@@ -207,13 +225,31 @@ async def run(
                 "error": load_error,
             }
         async with sem:
-            try:
-                verdict = await judge.judge(traj, steps, None)  # type: ignore[arg-type]
-            except JudgeParseError as exc:
+            verdict = None
+            last_transient: Exception | None = None
+            # Retry transient provider errors (HTTP 5xx, rate-limit, connection)
+            # with exponential backoff. JudgeParseError still fails per-trajectory
+            # without retry (a malformed judge response is a real bug, not a hiccup).
+            for attempt in range(_MAX_TRANSIENT_RETRIES):
+                try:
+                    verdict = await judge.judge(traj, steps, None)  # type: ignore[arg-type]
+                    break
+                except JudgeParseError as exc:
+                    return {
+                        "trajectory_id": traj_id,
+                        "gold_label": gold_label,
+                        "error": f"parse: {exc}",
+                    }
+                except Exception as exc:
+                    if not _is_transient(exc):
+                        raise
+                    last_transient = exc
+                    await asyncio.sleep(_TRANSIENT_BACKOFF_BASE * (2**attempt))
+            if verdict is None:
                 return {
                     "trajectory_id": traj_id,
                     "gold_label": gold_label,
-                    "error": f"parse: {exc}",
+                    "error": f"transient: {last_transient}",
                 }
         return {
             "trajectory_id": traj_id,
