@@ -9,10 +9,14 @@ exercised from unit tests without the extra installed.
 
 from __future__ import annotations
 
+import asyncio
+import importlib
 import json
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import Any, Literal, cast
 
+from ariadne_eval.benchmarks.base import BenchmarkRunResult, BenchmarkTask
 from ariadne_eval.core.ids import new_id
 from ariadne_eval.core.status import StepStatus, TrajectoryStatus
 from ariadne_eval.core.trajectory import (
@@ -24,8 +28,9 @@ from ariadne_eval.core.trajectory import (
     Trajectory,
     UserInputPayload,
 )
+from ariadne_eval.storage.base import Store
 
-__all__ = ["_convert_tau_traj"]
+__all__ = ["TauBenchAdapter", "_convert_tau_traj"]
 
 
 _SUCCESS_THRESHOLD = 1.0 - 1e-6
@@ -171,3 +176,200 @@ def _convert_tau_traj(
     )
 
     return trajectory, steps
+
+
+# ---------------------------------------------------------------------------
+# Lazy-import helpers
+# ---------------------------------------------------------------------------
+
+_EXTRA_MSG = (
+    "tau_bench is not installed. Install ariadne-eval with the [tau-bench] "
+    "extra: pip install 'ariadne-eval[tau-bench]'"
+)
+
+
+def _import_tau_bench_envs() -> Any:
+    """Lazy import of tau_bench.envs with an actionable error message."""
+    try:
+        return importlib.import_module("tau_bench.envs")
+    except ImportError as exc:
+        raise ImportError(_EXTRA_MSG) from exc
+
+
+def _build_tau_bench_agent(*, kind: str, model: str, provider: str, env: Any) -> Any:
+    """Construct the tau-bench agent class corresponding to ``kind``."""
+    tau_agents = importlib.import_module("tau_bench.agents")
+
+    if kind == "tool-calling":
+        return tau_agents.tool_calling_agent.ToolCallingAgent(
+            tools_info=env.tools_info,
+            wiki=env.wiki,
+            model=model,
+            provider=provider,
+            temperature=0.0,
+        )
+    elif kind == "react":
+        return tau_agents.chat_react_agent.ChatReActAgent(
+            tools_info=env.tools_info,
+            wiki=env.wiki,
+            model=model,
+            provider=provider,
+            temperature=0.0,
+        )
+    elif kind == "few-shot-tool-calling":
+        return tau_agents.few_shot_tool_calling_agent.FewShotToolCallingAgent(
+            tools_info=env.tools_info,
+            wiki=env.wiki,
+            model=model,
+            provider=provider,
+            temperature=0.0,
+        )
+    else:
+        raise ValueError(f"unknown agent_kind: {kind!r}")
+
+
+def _as_dict(obj: Any) -> dict[str, Any]:
+    """Coerce a tau-bench EnvRunResult (or similar) into a plain dict.
+
+    tau-bench's types may be frozen dataclasses, Pydantic models, or
+    namedtuples; this converter walks the common attributes our
+    converter needs (``task_id``, ``reward``, ``info``, ``traj``).
+    """
+    if hasattr(obj, "model_dump"):
+        return cast("dict[str, Any]", obj.model_dump())
+    if hasattr(obj, "__dict__"):
+        return dict(obj.__dict__)
+    if hasattr(obj, "_asdict"):
+        return cast("dict[str, Any]", obj._asdict())
+    raise TypeError(f"cannot coerce {type(obj).__name__} to dict")
+
+
+# ---------------------------------------------------------------------------
+# TauBenchAdapter
+# ---------------------------------------------------------------------------
+
+
+class TauBenchAdapter:
+    """Concrete Benchmark over tau-bench's retail or airline domains.
+
+    Lazy-imports tau_bench; the [tau-bench] extra must be installed for
+    ``tasks()`` and ``run_task()`` to work.
+    """
+
+    name: str
+
+    # Pinned in pyproject.toml's [tau-bench] extra; recorded in trajectory.agent_version.
+    _TAU_BENCH_COMMIT = "59a200c6d575d595120f1cb70fea53cef0632f6b"
+
+    def __init__(
+        self,
+        env_name: Literal["retail", "airline"],
+        *,
+        user_model: str = "groq/llama-3.3-70b-versatile",
+        user_strategy: str = "llm",
+        agent_kind: Literal["tool-calling", "react", "few-shot-tool-calling"] = "tool-calling",
+    ) -> None:
+        """Configure the adapter.
+
+        ``user_model`` is the LLM that drives the simulated user inside
+        tau-bench (a tau-bench native concept; defaults to Groq Llama
+        because tau-bench's simulated user is the largest line-item
+        across all cells).
+        """
+        self._env_name = env_name
+        self._user_model = user_model
+        self._user_strategy = user_strategy
+        self._agent_kind = agent_kind
+        self.name = f"tau-{env_name}"
+        self._last_split: str = "test"
+
+    def tasks(
+        self,
+        *,
+        split: str = "test",
+        limit: int | None = None,
+    ) -> Sequence[BenchmarkTask]:
+        """Return tau-bench's task list as ``BenchmarkTask`` records."""
+        self._last_split = split
+        envs = _import_tau_bench_envs()
+        env = envs.get_env(
+            self._env_name,
+            user_strategy=self._user_strategy,
+            user_model=self._user_model,
+            user_provider=self._user_model.split("/", 1)[0],
+            task_split=split,
+        )
+        raw_tasks: list[Any] = list(env.tasks)
+        if limit is not None:
+            raw_tasks = raw_tasks[:limit]
+        return [
+            BenchmarkTask(
+                task_id=str(raw.get("task_id", f"{self._env_name}-{i}"))
+                if isinstance(raw, dict)
+                else str(getattr(raw, "task_id", f"{self._env_name}-{i}")),
+                task_index=i,
+                instruction=str(raw.get("instruction", ""))
+                if isinstance(raw, dict)
+                else str(getattr(raw, "instruction", "")),
+                payload=raw,
+            )
+            for i, raw in enumerate(raw_tasks)
+        ]
+
+    async def run_task(
+        self,
+        task: BenchmarkTask,
+        model: str,
+        provider: str,
+        *,
+        store: Store,
+        seed: int = 42,
+    ) -> BenchmarkRunResult:
+        """Run ``task`` against ``model``, capture the trajectory, persist it."""
+        # Note: ``seed`` is part of the Benchmark protocol but tau-bench's
+        # agent.solve() doesn't accept a seed kwarg. Determinism is achieved
+        # via temperature=0.0 on the LLMs; seed shows up only in the runner's
+        # bootstrap CI computation downstream. Documented intentional discard.
+        _ = seed  # consume the parameter without forwarding
+
+        envs = _import_tau_bench_envs()
+        env = envs.get_env(
+            self._env_name,
+            user_strategy=self._user_strategy,
+            user_model=self._user_model,
+            user_provider=self._user_model.split("/", 1)[0],
+            task_split=self._last_split,
+        )
+
+        agent = _build_tau_bench_agent(
+            kind=self._agent_kind,
+            model=model,
+            provider=provider,
+            env=env,
+        )
+
+        # tau-bench's agent.solve() is synchronous; run it off the event loop.
+        loop = asyncio.get_running_loop()
+        env_result = await loop.run_in_executor(
+            None, lambda: agent.solve(env=env, task_index=task.task_index)
+        )
+
+        # env_result may be a tau_bench EnvRunResult (frozen dataclass) or
+        # similar. Convert to a plain dict for our converter.
+        result_dict = env_result if isinstance(env_result, dict) else _as_dict(env_result)
+        traj, steps = _convert_tau_traj(
+            result_dict,
+            instruction=task.instruction,
+            model_id=f"{provider}/{model}",
+            agent_name=f"tau-bench/{self._agent_kind}",
+            agent_version=self._TAU_BENCH_COMMIT,
+        )
+        await store.save_trajectory(traj, steps)
+
+        reward = float(result_dict.get("reward", 0.0))
+        return BenchmarkRunResult(
+            trajectory_id=traj.id,
+            success=reward >= _SUCCESS_THRESHOLD,
+            raw_score=reward,
+            error=None,
+        )
