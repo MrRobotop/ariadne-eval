@@ -112,7 +112,7 @@ async def test_build_calibration_set_happy_path(
     lines = [
         json.loads(line) for line in out.read_text(encoding="utf-8").splitlines() if line.strip()
     ]
-    per = [r for r in lines if r.get("_kind") != "summary"]
+    per = [r for r in lines if "_kind" not in r]
     summary = [r for r in lines if r.get("_kind") == "summary"]
     assert len(per) == 3
     assert len(summary) == 1
@@ -156,7 +156,7 @@ async def test_build_calibration_set_load_failure_recorded(
     lines = [
         json.loads(line) for line in out.read_text(encoding="utf-8").splitlines() if line.strip()
     ]
-    per = [r for r in lines if r.get("_kind") != "summary"]
+    per = [r for r in lines if "_kind" not in r]
     summary = [r for r in lines if r.get("_kind") == "summary"]
     assert len(per) == 1
     assert per[0]["error"].startswith("load: ")
@@ -201,7 +201,7 @@ async def test_build_calibration_set_parse_error_recorded(
     lines = [
         json.loads(line) for line in out.read_text(encoding="utf-8").splitlines() if line.strip()
     ]
-    per = [r for r in lines if r.get("_kind") != "summary"]
+    per = [r for r in lines if "_kind" not in r]
     assert per[0]["error"].startswith("parse: ")
 
 
@@ -328,3 +328,58 @@ async def test_run_with_source_store_and_no_store_path_raises(
             out_path=out,
             concurrency=1,
         )
+
+
+def test_confusion_matrix_and_per_label_metrics() -> None:
+    """Hand-computed expected on a small (gold, judge) pair list."""
+    from build_calibration_set import _build_confusion_block
+
+    # pairs: (gold, judge)
+    # gold=[pass, pass, partial, fail, fail]
+    # judge=[pass, fail,   pass,   fail, partial]
+    # sorted label_set = [fail, partial, pass], rows=gold cols=judge
+    #   fail row (gold=fail, 2 entries): (fail,fail)=1 in fail col,
+    #                                    (fail,partial)=1 in partial col
+    #                                    → [1, 1, 0]
+    #   partial row (gold=partial, 1 entry): (partial,pass)=1 in pass col
+    #                                        → [0, 0, 1]
+    #   pass row (gold=pass, 2 entries): (pass,pass)=1 in pass col,
+    #                                    (pass,fail)=1 in fail col
+    #                                    → [1, 0, 1]
+    pairs = [
+        ("pass", "pass"),
+        ("pass", "fail"),
+        ("partial", "pass"),
+        ("fail", "fail"),
+        ("fail", "partial"),
+    ]
+    block = _build_confusion_block(pairs)
+    assert block["_kind"] == "confusion"
+    assert block["labels"] == ["fail", "partial", "pass"]
+    assert block["matrix"] == [[1, 1, 0], [0, 0, 1], [1, 0, 1]]
+    assert block["per_label"]["fail"]["support"] == 2
+    assert block["per_label"]["partial"]["support"] == 1
+    assert block["per_label"]["pass"]["support"] == 2
+    # tp_fail=1, col_sum_fail=2 → precision=0.5
+    # tp_fail=1, row_sum_fail=2 → recall=0.5
+    assert block["per_label"]["fail"]["precision"] == 0.5
+    assert block["per_label"]["fail"]["recall"] == 0.5
+    # tp_pass=1, col_sum_pass=2, row_sum_pass=2 → both 0.5
+    assert block["per_label"]["pass"]["precision"] == 0.5
+    assert block["per_label"]["pass"]["recall"] == 0.5
+    # tp_partial=0, col_sum_partial=1 → precision=0/1=0.0, recall=0/1=0.0
+    assert block["per_label"]["partial"]["precision"] == 0.0
+    assert block["per_label"]["partial"]["recall"] == 0.0
+
+
+def test_confusion_block_with_empty_pairs_is_safe() -> None:
+    """No judged pairs → empty matrix, empty per_label, label_set empty."""
+    from build_calibration_set import _build_confusion_block
+
+    block = _build_confusion_block([])
+    assert block == {
+        "_kind": "confusion",
+        "labels": [],
+        "matrix": [],
+        "per_label": {},
+    }

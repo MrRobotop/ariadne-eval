@@ -42,6 +42,50 @@ def _resolve_test_factory() -> Any | None:
     return getattr(mod, attr)
 
 
+def _build_confusion_block(
+    judged_pairs: list[tuple[str, str]],
+) -> dict[str, object]:
+    """Build the ``_kind: "confusion"`` JSONL block from judged pairs.
+
+    ``judged_pairs`` is a list of ``(gold_label, judge_label)``. The
+    returned dict contains the sorted label set, the row=gold/col=judge
+    confusion matrix as nested ints, and per-label precision / recall /
+    support computed against the matrix. Precision and recall are 0.0
+    when the relevant denominator is zero (label never predicted by the
+    judge, or never present in gold, respectively).
+    """
+    if not judged_pairs:
+        return {"_kind": "confusion", "labels": [], "matrix": [], "per_label": {}}
+
+    labels = sorted({g for g, _ in judged_pairs} | {j for _, j in judged_pairs})
+    n = len(labels)
+    idx = {lbl: i for i, lbl in enumerate(labels)}
+
+    matrix: list[list[int]] = [[0] * n for _ in range(n)]
+    for gold, judge in judged_pairs:
+        matrix[idx[gold]][idx[judge]] += 1
+
+    per_label: dict[str, dict[str, float | int]] = {}
+    for i, lbl in enumerate(labels):
+        tp = matrix[i][i]
+        row_sum = sum(matrix[i])  # gold count of this label
+        col_sum = sum(matrix[r][i] for r in range(n))  # judge count of this label
+        precision = tp / col_sum if col_sum else 0.0
+        recall = tp / row_sum if row_sum else 0.0
+        per_label[lbl] = {
+            "precision": round(precision, 3),
+            "recall": round(recall, 3),
+            "support": row_sum,
+        }
+
+    return {
+        "_kind": "confusion",
+        "labels": labels,
+        "matrix": matrix,
+        "per_label": per_label,
+    }
+
+
 def _make_judge(model: str) -> Judge:
     factory = _resolve_test_factory()
     if factory is not None:
@@ -161,11 +205,15 @@ async def run(
             "label_set": [],
         }
 
+    confusion_block = _build_confusion_block(judged_pairs)
+
     with out_path.open("w", encoding="utf-8") as f:
         for row in rows:
             f.write(json.dumps(row, default=str))
             f.write("\n")
         f.write(json.dumps(summary, default=str))
+        f.write("\n")
+        f.write(json.dumps(confusion_block, default=str))
         f.write("\n")
 
 
