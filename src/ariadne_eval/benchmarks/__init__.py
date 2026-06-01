@@ -17,13 +17,17 @@ from ariadne_eval.benchmarks.config import (
     TauBenchSpec,
     load_benchmark_config,
 )
+from ariadne_eval.benchmarks.runner import BenchmarkReport, BenchmarkRunner, CellResult
 
 __all__ = [
     "Benchmark",
     "BenchmarkConfig",
+    "BenchmarkReport",
     "BenchmarkRunResult",
+    "BenchmarkRunner",
     "BenchmarkTask",
     "BootstrapSpec",
+    "CellResult",
     "JudgeSpec",
     "ModelSpec",
     "OutputSpec",
