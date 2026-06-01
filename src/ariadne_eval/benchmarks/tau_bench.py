@@ -349,9 +349,17 @@ class TauBenchAdapter:
             task_index=task.task_index,
         )
 
+        # YAML convention: ``model`` is a litellm alias like
+        # "anthropic/claude-haiku-4-5-20251001" — provider prefix already
+        # included. tau-bench's agent takes ``model`` and ``provider``
+        # separately and re-composes the litellm alias internally, so
+        # strip the prefix before handing it to tau-bench to avoid
+        # double-prefixing ("anthropic/anthropic/…").
+        bare_model = model.split("/", 1)[1] if "/" in model else model
+
         agent = _build_tau_bench_agent(
             kind=self._agent_kind,
-            model=model,
+            model=bare_model,
             provider=provider,
             env=env,
         )
@@ -376,7 +384,7 @@ class TauBenchAdapter:
         traj, steps = _convert_tau_traj(
             result_dict,
             instruction=task.instruction,
-            model_id=f"{provider}/{model}",
+            model_id=model,
             agent_name=f"tau-bench/{self._agent_kind}",
             agent_version=self._TAU_BENCH_COMMIT,
         )
