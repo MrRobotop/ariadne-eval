@@ -385,6 +385,159 @@ def test_confusion_block_with_empty_pairs_is_safe() -> None:
     }
 
 
+def test_is_transient_recognises_listed_names() -> None:
+    """_is_transient returns True for known provider error class names."""
+    from build_calibration_set import _is_transient
+
+    class RateLimitError(Exception):
+        pass
+
+    class UnrelatedError(Exception):
+        pass
+
+    assert _is_transient(RateLimitError()) is True
+    assert _is_transient(UnrelatedError()) is False
+
+
+def test_is_transient_all_recognised_names() -> None:
+    """Every name in _TRANSIENT_EXC_NAMES is matched by _is_transient."""
+    from build_calibration_set import _TRANSIENT_EXC_NAMES, _is_transient
+
+    for name in _TRANSIENT_EXC_NAMES:
+        exc_cls = type(name, (Exception,), {})
+        assert _is_transient(exc_cls()) is True
+
+
+def test_main_cli_usage_error_on_store_without_store_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CLI raises UsageError when --source store is given without --store."""
+    from build_calibration_set import main
+    from click.testing import CliRunner
+
+    monkeypatch.setenv(
+        "ARIADNE_TEST_JUDGE_FACTORY",
+        "tests.unit.scripts.test_build_calibration_set._stub_factory_passing",
+    )
+    gold = tmp_path / "gold.jsonl"
+    gold.write_text(
+        json.dumps({"trajectory_id": "01J000000000000000000MISSING", "label": "pass"}) + "\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "calibration.jsonl"
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--source",
+            "store",
+            "--gold-labels",
+            str(gold),
+            "--judge-model",
+            "test/model",
+            "--out",
+            str(out),
+        ],
+    )
+    assert result.exit_code != 0
+    assert "store" in result.output.lower() or result.exit_code == 2
+
+
+def test_main_cli_usage_error_source_store_guard_direct(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """main() directly: the click.UsageError branch for source=store+no store."""
+    import click  # noqa: I001
+
+    from build_calibration_set import main
+
+    gold = tmp_path / "gold.jsonl"
+    gold.write_text(
+        json.dumps({"trajectory_id": "01J000000000000000000MISSING", "label": "pass"}) + "\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "calibration.jsonl"
+
+    # Call main.callback directly (bypasses Click parsing, exercises guard at line 362-363)
+    with pytest.raises(click.UsageError, match="store"):
+        main.callback(  # type: ignore[union-attr]
+            source="store",
+            store_path=None,
+            gold_labels=gold,
+            judge_model="test/model",
+            out_path=out,
+            concurrency=1,
+        )
+
+
+class _AlwaysTransientJudge:
+    """A Judge that always raises a RateLimitError (matches _TRANSIENT_EXC_NAMES)."""
+
+    class RateLimitError(Exception):
+        pass
+
+    async def judge(  # type: ignore[no-untyped-def]
+        self, trajectory, steps, rubric
+    ) -> None:
+        raise _AlwaysTransientJudge.RateLimitError("too many requests")
+
+
+def _stub_factory_always_transient(*_args: object, **_kwargs: object) -> _AlwaysTransientJudge:
+    return _AlwaysTransientJudge()
+
+
+async def test_transient_retry_exhausted_returns_error_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Transient errors exhaust retries → per-row 'error: transient:' line."""
+    import asyncio as _asyncio
+
+    store_path = tmp_path / "store.duckdb"
+    store = DuckDBStore(path=store_path)
+    traj, steps = _build_traj_and_steps("c0", "plan 0")
+    await store.save_trajectory(traj, steps)
+    await store.close()
+
+    gold = tmp_path / "gold.jsonl"
+    gold.write_text(
+        json.dumps({"trajectory_id": traj.id, "label": "pass"}) + "\n",
+        encoding="utf-8",
+    )
+
+    # Limit to 1 retry so the test stays fast, and no-op the backoff sleep.
+    import build_calibration_set as _bcs
+
+    monkeypatch.setattr(_bcs, "_MAX_TRANSIENT_RETRIES", 1)
+
+    async def _noop_sleep(_delay: float) -> None:
+        pass
+
+    monkeypatch.setattr(_asyncio, "sleep", _noop_sleep)
+
+    monkeypatch.setenv(
+        "ARIADNE_TEST_JUDGE_FACTORY",
+        "tests.unit.scripts.test_build_calibration_set._stub_factory_always_transient",
+    )
+
+    out = tmp_path / "calibration.jsonl"
+    from build_calibration_set import run
+
+    await run(
+        source="store",
+        store_path=store_path,
+        gold_labels=gold,
+        judge_model="test/model",
+        out_path=out,
+        concurrency=1,
+    )
+
+    lines = [json.loads(ln) for ln in out.read_text().splitlines() if ln.strip()]
+    per = [r for r in lines if "_kind" not in r]
+    assert len(per) == 1
+    assert "transient" in per[0].get("error", "")
+
+
 def test_meta_block_shape_and_prompt_hashes() -> None:
     """The meta block carries judge config + prompt hashes + ariadne version."""
     import hashlib

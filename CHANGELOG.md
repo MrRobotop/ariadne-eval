@@ -15,6 +15,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Phase 6.1: judge symbols (`Judge`, `JudgeParseError`, `JudgeVerdict`,
+  `PlanQuality`, `StubJudge`, `TrajectoryJudge`) are now top-level
+  public (`from ariadne_eval import TrajectoryJudge`).
+- 51-fixture synthetic plan-quality gold set
+  (`tests/data/gold_plans.jsonl`, balanced 17/17/17 across `pass`/
+  `partial`/`fail`).
+- Calibration evidence: `TrajectoryJudge` achieves κ = 0.32 (fair)
+  against the maintainer on the gold set. Report committed at
+  `docs/calibration/v0.0.8-alpha-report.jsonl`; human-readable page at
+  `docs/concepts/calibration.md`.
+- `scripts/build_calibration_set.py`: `--source synth|store` flag;
+  `click.UsageError` UX on missing `--store`; bounded
+  exponential-backoff retry on transient provider errors; `_kind:
+  "confusion"` and `_kind: "meta"` trailing JSONL lines (with
+  prompt-hash digests for drift detection).
+- `scripts/render_calibration_md.py`: renders the JSONL report into a
+  human-readable docs page; golden-file tested.
+- Version bumped to `0.0.8-alpha` (`__version__`, `pyproject.toml`,
+  smoke tests).
 - `AsyncMetric` Protocol and `Runner.aevaluate` with bounded concurrency
   (`asyncio.Semaphore`, default 4). Sync `Runner.evaluate` now raises a
   clear `RuntimeError` directing users to `aevaluate` for async-only
