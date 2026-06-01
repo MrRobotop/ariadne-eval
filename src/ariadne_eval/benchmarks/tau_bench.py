@@ -198,10 +198,9 @@ def _import_tau_bench_envs() -> Any:
 
 def _build_tau_bench_agent(*, kind: str, model: str, provider: str, env: Any) -> Any:
     """Construct the tau-bench agent class corresponding to ``kind``."""
-    tau_agents = importlib.import_module("tau_bench.agents")
-
     if kind == "tool-calling":
-        return tau_agents.tool_calling_agent.ToolCallingAgent(
+        agent_mod = importlib.import_module("tau_bench.agents.tool_calling_agent")
+        return agent_mod.ToolCallingAgent(
             tools_info=env.tools_info,
             wiki=env.wiki,
             model=model,
@@ -209,7 +208,8 @@ def _build_tau_bench_agent(*, kind: str, model: str, provider: str, env: Any) ->
             temperature=0.0,
         )
     elif kind == "react":
-        return tau_agents.chat_react_agent.ChatReActAgent(
+        agent_mod = importlib.import_module("tau_bench.agents.chat_react_agent")
+        return agent_mod.ChatReActAgent(
             tools_info=env.tools_info,
             wiki=env.wiki,
             model=model,
@@ -217,7 +217,8 @@ def _build_tau_bench_agent(*, kind: str, model: str, provider: str, env: Any) ->
             temperature=0.0,
         )
     elif kind == "few-shot-tool-calling":
-        return tau_agents.few_shot_tool_calling_agent.FewShotToolCallingAgent(
+        agent_mod = importlib.import_module("tau_bench.agents.few_shot_agent")
+        return agent_mod.FewShotToolCallingAgent(
             tools_info=env.tools_info,
             wiki=env.wiki,
             model=model,
@@ -357,6 +358,14 @@ class TauBenchAdapter:
         # env_result may be a tau_bench EnvRunResult (frozen dataclass) or
         # similar. Convert to a plain dict for our converter.
         result_dict = env_result if isinstance(env_result, dict) else _as_dict(env_result)
+        # SolveResult uses 'messages'; our converter expects 'traj'. Also
+        # SolveResult lacks task_id (it lives on the BenchmarkTask, not the
+        # result), so we inject it here.
+        if "traj" not in result_dict and "messages" in result_dict:
+            result_dict["traj"] = result_dict["messages"]
+        if "task_id" not in result_dict:
+            result_dict["task_id"] = task.task_id
+
         traj, steps = _convert_tau_traj(
             result_dict,
             instruction=task.instruction,

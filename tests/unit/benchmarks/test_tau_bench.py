@@ -83,8 +83,6 @@ async def test_run_task_calls_agent_solve_and_persists_trajectory(
 
     fake_tool_calling_module = MagicMock()
     fake_tool_calling_module.ToolCallingAgent = MagicMock(return_value=fake_agent_instance)
-    fake_agents_mod = MagicMock()
-    fake_agents_mod.tool_calling_agent = fake_tool_calling_module
 
     fake_envs_mod = MagicMock()
     fake_envs_mod.get_env = MagicMock(return_value=fake_env)
@@ -92,7 +90,9 @@ async def test_run_task_calls_agent_solve_and_persists_trajectory(
 
     monkeypatch.setitem(sys.modules, "tau_bench", fake_tau_bench_mod)
     monkeypatch.setitem(sys.modules, "tau_bench.envs", fake_envs_mod)
-    monkeypatch.setitem(sys.modules, "tau_bench.agents", fake_agents_mod)
+    monkeypatch.setitem(
+        sys.modules, "tau_bench.agents.tool_calling_agent", fake_tool_calling_module
+    )
 
     store = DuckDBStore(path=tmp_path / "test.duckdb")
     adapter = TauBenchAdapter(env_name="retail")
@@ -112,4 +112,59 @@ async def test_run_task_calls_agent_solve_and_persists_trajectory(
     assert traj.task == "do thing"
     assert traj.final_answer == "done."
     assert len(steps) >= 2  # user + assistant
+    await store.close()
+
+
+async def test_run_task_normalizes_solveresult_shape(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """run_task bridges SolveResult (messages, no task_id) → EnvRunResult shape."""
+    from ariadne_eval.storage.duckdb_store import DuckDBStore
+
+    fake_env = MagicMock()
+    fake_env.tasks = [{"task_id": "retail-0", "instruction": "do thing"}]
+    fake_env.tools_info = []
+    fake_env.wiki = ""
+
+    # SolveResult shape: messages (not traj), no task_id, has total_cost
+    fake_solve_result = {
+        "reward": 1.0,
+        "messages": [
+            {"role": "user", "content": "do thing"},
+            {"role": "assistant", "content": "done."},
+        ],
+        "info": {},
+        "total_cost": 0.0,
+    }
+    fake_agent_instance = MagicMock()
+    fake_agent_instance.solve = MagicMock(return_value=fake_solve_result)
+
+    fake_tool_calling_module = MagicMock()
+    fake_tool_calling_module.ToolCallingAgent = MagicMock(return_value=fake_agent_instance)
+    fake_envs_mod = MagicMock()
+    fake_envs_mod.get_env = MagicMock(return_value=fake_env)
+
+    monkeypatch.setitem(sys.modules, "tau_bench", MagicMock())
+    monkeypatch.setitem(sys.modules, "tau_bench.envs", fake_envs_mod)
+    monkeypatch.setitem(
+        sys.modules, "tau_bench.agents.tool_calling_agent", fake_tool_calling_module
+    )
+
+    store = DuckDBStore(path=tmp_path / "solveresult.duckdb")
+    adapter = TauBenchAdapter(env_name="retail")
+    tasks = adapter.tasks(limit=1)
+
+    result = await adapter.run_task(
+        tasks[0],
+        model="haiku-stub",
+        provider="anthropic",
+        store=store,
+        seed=42,
+    )
+    assert result.success is True
+    assert result.raw_score == 1.0
+    traj, _steps = await store.get_trajectory(result.trajectory_id)
+    assert traj.task == "do thing"
+    assert traj.final_answer == "done."
+    assert traj.metadata["tau_bench_task_id"] == "retail-0"  # injected from BenchmarkTask
     await store.close()
