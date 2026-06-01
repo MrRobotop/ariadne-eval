@@ -1,6 +1,14 @@
 # Phase 7 headline benchmark: tau-retail × 2 models × 50 tasks.
 # Anthropic budget cap $5 → Sonnet is dropped from the agent lineup;
-# the simulated user runs on Groq (unlimited).
+# the simulated user runs on Groq (free tier — 100k tokens/day).
+#
+# IMPORTANT: tau-bench's retail user-simulator burns ~50k tokens per
+# task, so Groq's 100k/day free tier supports ~2 tasks before the
+# bucket empties. This config assumes:
+#   1. Groq daily quota has reset (UTC midnight), AND
+#   2. The full 50-task run completes within a single quota window.
+# If a run hits Groq RateLimitError after a few tasks, wait for the
+# next quota reset OR upgrade Groq to a paid tier.
 #
 # Estimated Anthropic spend:
 #   Haiku agent on 50 tasks    : ~$2.00
