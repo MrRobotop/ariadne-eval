@@ -11,6 +11,7 @@ from __future__ import annotations
 import click
 
 from ariadne_eval._version import __version__
+from ariadne_eval.cli.bench import bench as _bench_cmd
 
 
 @click.group(
@@ -27,6 +28,9 @@ def cli() -> None:
 def hello(name: str) -> None:
     """Print a friendly greeting; placeholder while the real CLI is built out."""
     click.echo(f"Hello, {name}! ariadne-eval v{__version__} is alive.")
+
+
+cli.add_command(_bench_cmd)
 
 
 if __name__ == "__main__":  # pragma: no cover
