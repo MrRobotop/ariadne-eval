@@ -10,11 +10,28 @@ behind a tau-agnostic `Benchmark` Protocol, trace each task end-to-end
 through ariadne-eval's existing tracing + storage stack, score the
 captured trajectories with the existing eval Runner + `PlanQuality`
 judge, and write a reproducible result bundle (config + trajectories +
-summary) for one canonical run: three models × 50 retail tasks.
+summary) for one canonical run: **two agent models × 50 retail tasks**.
 
 The deliverable that unblocks the README's headline table is the
 committed result bundle at
 `docs/benchmarks/v0.0.9-alpha-tau-retail-50/`.
+
+## Budget envelope
+
+This phase's manual run must fit a **$5 Anthropic cap** (Groq is
+unlimited under the maintainer's account). The model lineup and
+tau-bench user-strategy choice below are constrained by this cap.
+
+Estimated Anthropic spend on the canonical run:
+- Haiku 4.5 agent on 50 tasks: ~$2.00
+- Sonnet 4.6 judge on 100 trajectories (`PlanQuality`): ~$1.00
+- **Anthropic total: ~$3.00** (leaves ~$2 retry headroom)
+
+Groq spend on the canonical run (free under maintainer's account):
+- Llama 3.3 70B agent on 50 tasks
+- Llama 3.3 70B simulated user across 100 cells (the biggest
+  line-item if it were on Anthropic — running it on Groq is the
+  load-bearing budget decision).
 
 ## Scope
 
@@ -52,7 +69,7 @@ In, in build order:
 7. **`ariadne bench run` CLI.** `src/ariadne_eval/cli/bench.py`. Click
    subcommand. Flags: `--dry-run`, `--limit`, `--models`, `--resume`.
 8. **Headline config.** `configs/benchmarks/tau_retail_baseline.yaml`
-   declares the 3-model × 50-task retail run.
+   declares the 2-model × 50-task retail run (Haiku 4.5 + Llama 3.3 70B).
 9. **One-shot manual run** by the maintainer with real
    `ANTHROPIC_API_KEY` + `GROQ_API_KEY`. Produces the committed
    bundle.
@@ -108,7 +125,7 @@ configs/benchmarks/
 
 docs/benchmarks/v0.0.9-alpha-tau-retail-50/
 ├── config.yaml              copy of input config (audit trail)
-├── trajectories.jsonl       150 lines (50 tasks × 3 models)
+├── trajectories.jsonl       100 lines (50 tasks × 2 models)
 └── summary.json             headline pass rates + bootstrap CIs + per-model metric aggregates
 ```
 
@@ -171,7 +188,7 @@ class TauBenchAdapter:
         self,
         env_name: Literal["retail", "airline"],
         *,
-        user_model: str = "anthropic/claude-sonnet-4-6",
+        user_model: str = "groq/llama-3.3-70b-versatile",
         user_strategy: str = "llm",
         agent_kind: Literal["tool-calling", "react", "few-shot-tool-calling"] = "tool-calling",
     ) -> None: ...
@@ -225,7 +242,7 @@ class TauBenchSpec(BaseModel):
     kind: Literal["tau-bench"]
     env: Literal["retail", "airline"]
     task_split: str = "test"
-    user_model: str = "anthropic/claude-sonnet-4-6"
+    user_model: str = "groq/llama-3.3-70b-versatile"
     user_strategy: str = "llm"
     agent_kind: Literal["tool-calling", "react", "few-shot-tool-calling"] = "tool-calling"
 
@@ -333,18 +350,16 @@ DuckDB.
 `configs/benchmarks/tau_retail_baseline.yaml`:
 
 ```yaml
-# Phase 7 headline benchmark: tau-retail × 3 models × 50 tasks
+# Phase 7 headline benchmark: tau-retail × 2 models × 50 tasks
 benchmark:
   kind: tau-bench
   env: retail
   task_split: test
-  user_model: anthropic/claude-sonnet-4-6
+  user_model: groq/llama-3.3-70b-versatile   # tau-bench's simulated user; Groq to stay in budget
   user_strategy: llm
   agent_kind: tool-calling
 
 models:
-  - model: anthropic/claude-sonnet-4-6
-    provider: anthropic
   - model: anthropic/claude-haiku-4-5-20251001
     provider: anthropic
   - model: groq/llama-3.3-70b-versatile
@@ -373,6 +388,14 @@ output:
   store_path: ~/.ariadne/bench-store.duckdb
 ```
 
+The lineup is **two agent models** (down from three): Sonnet is dropped
+to keep the run inside the $5 Anthropic envelope. The narrative
+becomes "production-grade Anthropic mini vs production-grade open-
+weights" — a sharper portfolio comparison than the within-Anthropic
+ladder anyway. The simulated user runs on Groq (`groq/llama-3.3-70b-
+versatile`) because it's the biggest line-item across all cells and
+Groq is unlimited.
+
 ## CLI surface
 
 ```bash
@@ -383,16 +406,17 @@ ariadne bench run configs/benchmarks/tau_retail_baseline.yaml \
     [--resume]                  # skip cells already in store; persist new ones
 ```
 
-`--resume` is non-negotiable for a 150-cell run that costs ~$11: any
-single failure (rate-limit cascade, provider blip) must not force
-re-running the whole thing.
+`--resume` is non-negotiable for a 100-cell run: any single failure
+(rate-limit cascade, provider blip) must not force re-running the whole
+thing. Even at the revised ~$3 budget, restarting from cell 0 after a
+failure two-thirds through wastes both money and time.
 
 ## Result bundle
 
 ```
 docs/benchmarks/v0.0.9-alpha-tau-retail-50/
 ├── config.yaml              copy of input config (audit trail)
-├── trajectories.jsonl       150 lines (50 × 3), sorted by (task_id, model)
+├── trajectories.jsonl       100 lines (50 × 2), sorted by (task_id, model)
 └── summary.json             headline numbers
 ```
 
@@ -534,11 +558,11 @@ the maintainer's one-shot Task 9 (this phase's equivalent of Phase
   Parquet is a real dep; JSONL + DuckDB already round-trip cleanly.
   HTML report is a Phase 9 concern (the Streamlit UI will read the
   bundle).
-- **Why no integration test that runs real tau-bench.** Cost ($11+
-  per run) and flakiness (5+ LLM providers in the loop). The unit
-  tests cover plumbing via stubs; the actual run IS the integration
-  test.
-- **Why `--resume` is in scope.** A 150-cell run hitting a single
+- **Why no integration test that runs real tau-bench.** Cost (real
+  LLM dollars even at the revised lineup) and flakiness (multiple
+  providers in the loop). The unit tests cover plumbing via stubs;
+  the actual run IS the integration test.
+- **Why `--resume` is in scope.** A 100-cell run hitting a single
   rate-limit cascade two-thirds through cannot reasonably mean
   re-paying for the first 100 cells. Resume-from-store is a
   must-have, not a nice-to-have.
@@ -565,7 +589,7 @@ Standard project DoD plus:
       trajectories.jsonl, summary.json}`.
 - [ ] `summary.json` carries the `calibration_note` field on every
       `plan_quality` aggregate.
-- [ ] README updated with the headline table (3 rows: model × pass
+- [ ] README updated with the headline table (2 rows: model × pass
       rate × CI). Linked from the "What's shipped" phase row.
 - [ ] `docs/concepts/benchmarks.md` new page explaining the run
       methodology, pinned tau-bench commit, link to `summary.json`.
