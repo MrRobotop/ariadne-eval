@@ -16,7 +16,10 @@ def test_top_level_adds_only_async_metric_and_kappa() -> None:
         assert getattr(ariadne_eval, name) is not None
 
 
-def test_judge_symbols_not_top_level_public() -> None:
+def test_judge_symbols_promoted_in_phase6_1() -> None:
+    # Phase 6 kept these namespace-private pending calibration (Hard Rule #5).
+    # Phase 6.1 shipped calibration data (κ = 0.32) and promoted them.
+    # This test now confirms the promotion succeeded rather than blocking it.
     for name in (
         "Judge",
         "JudgeVerdict",
@@ -25,8 +28,8 @@ def test_judge_symbols_not_top_level_public() -> None:
         "StubJudge",
         "PlanQuality",
     ):
-        assert name not in ariadne_eval.__all__, (
-            f"{name} must NOT be top-level public until Phase 6.1 calibration ships"
+        assert name in ariadne_eval.__all__, (
+            f"{name} must be top-level public as of Phase 6.1 (calibration shipped)"
         )
 
 
