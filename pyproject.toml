@@ -1,6 +1,6 @@
 [project]
 name = "ariadne-eval"
-version = "0.0.8-alpha"
+version = "0.0.9-alpha"
 description = "Trajectory-level observability and evaluation for LLM agents."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -44,6 +44,7 @@ dependencies = [
     "scipy>=1.11",
     "numpy>=1.26",
     "statsmodels>=0.14",
+    "pyyaml>=6.0",
 ]
 
 [project.urls]
@@ -79,6 +80,13 @@ dev = [
     "mypy>=1.10",
     "pre-commit>=3.7",
     "types-requests",
+    "types-pyyaml",
+]
+tau-bench = [
+    "tau-bench @ git+https://github.com/sierra-research/tau-bench@59a200c6d575d595120f1cb70fea53cef0632f6b",
+]
+bench = [
+    "ariadne-eval[tau-bench]",
 ]
 all = [
     "ariadne-eval[langgraph,openai-assistants,docs,dev]",
@@ -90,6 +98,9 @@ ariadne = "ariadne_eval.cli.main:cli"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ariadne_eval"]

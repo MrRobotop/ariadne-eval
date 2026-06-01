@@ -21,7 +21,7 @@ from ariadne_eval.cli.main import cli
 
 @pytest.mark.fast
 def test_package_version_is_pinned():
-    assert ariadne_eval.__version__ == "0.0.8-alpha"
+    assert ariadne_eval.__version__ == "0.0.9-alpha"
 
 
 @pytest.mark.fast
@@ -30,7 +30,7 @@ def test_cli_version_via_click_runner():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0, result.output
-    assert "0.0.8-alpha" in result.output
+    assert "0.0.9-alpha" in result.output
 
 
 @pytest.mark.fast
@@ -39,7 +39,7 @@ def test_cli_hello_subcommand():
     result = runner.invoke(cli, ["hello", "--name", "ariadne"])
     assert result.exit_code == 0
     assert "ariadne" in result.output
-    assert "0.0.8-alpha" in result.output
+    assert "0.0.9-alpha" in result.output
 
 
 @pytest.mark.fast
@@ -112,7 +112,7 @@ def test_installed_console_script_runs():
         timeout=10,
     )
     assert result.returncode == 0, result.stderr
-    assert "0.0.8-alpha" in result.stdout
+    assert "0.0.9-alpha" in result.stdout
 
     # And via `python -m` as a belt-and-braces check.
     result_module = subprocess.run(
@@ -123,4 +123,4 @@ def test_installed_console_script_runs():
         timeout=10,
     )
     assert result_module.returncode == 0
-    assert "0.0.8-alpha" in result_module.stdout
+    assert "0.0.9-alpha" in result_module.stdout
